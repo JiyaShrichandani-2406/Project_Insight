@@ -22,7 +22,7 @@ else:
     ai_client = None
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'college_pms_secret_2024'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/college_pms.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
