@@ -23,7 +23,7 @@ else:
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'college_pms_secret_2024'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///college_pms.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/college_pms.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
