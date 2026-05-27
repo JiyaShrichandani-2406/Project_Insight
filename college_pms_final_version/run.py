@@ -49,7 +49,7 @@ with app.app_context():
         db.session.commit()
         print("Fresh admin data seeded!")
         print("Demo data seeded!")
-        
+
 print("\n" + "="*52)
 print("  🎓 College Project Management System")
 print("="*52)
@@ -60,5 +60,4 @@ print()
 print("  Admin registration code : ADMIN2024")
 print("="*52 + "\n")
 
-if __name__ == "__main__":
-    app.run(debug=False, host="0.0.0.0")
+app.run(debug=True, port=5000, host='0.0.0.0')
