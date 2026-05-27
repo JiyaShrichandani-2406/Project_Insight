@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Faculty Dashboard{% endblock %}
+{% block topbar_title %}Faculty Dashboard{% endblock %}
+{% block content %}
+
+<div style="background:linear-gradient(135deg,var(--surface2),var(--surface));border:1px solid var(--border);border-radius:var(--radius);padding:18px 22px;margin-bottom:20px;display:flex;align-items:center;gap:14px">
+  <div style="width:44px;height:44px;border-radius:50%;background:{{ current_user.avatar_color }};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff">{{ current_user.name[0] }}</div>
+  <div>
+    <div style="font-family:var(--font-display);font-size:16px;font-weight:600">Welcome, {{ current_user.name }}</div>
+    <div style="font-size:12px;color:var(--text2)">Faculty Guide — {{ current_user.department or 'No department' }}</div>
+  </div>
+  <div style="margin-left:auto">
+    <span class="badge badge-minor"><i class="fa-solid fa-chalkboard-teacher" style="margin-right:4px"></i>Faculty Guide</span>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card purple">
+    <div class="stat-icon"><i class="fa-solid fa-folder-open"></i></div>
+    <div class="stat-value">{{ stats.guided }}</div>
+    <div class="stat-label">Assigned Projects</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div>
+    <div class="stat-value">{{ stats.approved }}</div>
+    <div class="stat-label">Active / Ongoing</div>
+  </div>
+  <div class="stat-card blue">
+    <div class="stat-icon"><i class="fa-solid fa-flag-checkered"></i></div>
+    <div class="stat-value">{{ stats.completed }}</div>
+    <div class="stat-label">Completed</div>
+  </div>
+  <div class="stat-card yellow">
+    <div class="stat-icon"><i class="fa-solid fa-star"></i></div>
+    <div class="stat-value">{{ stats.evaluated }}</div>
+    <div class="stat-label">Evaluated</div>
+  </div>
+</div>
+
+<div class="grid-2">
+
+  <!-- My Assigned Projects -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">📋 My Assigned Projects</span>
+      <span class="text-xs">Assigned by Admin</span>
+    </div>
+    <div class="card-body" style="padding:0">
+      {% if projects %}
+      {% for p in projects %}
+      <a href="{{ url_for('project_detail', project_id=p.id) }}" style="text-decoration:none;color:inherit">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border);transition:background 0.15s" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''">
+          <div class="flex-between">
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.title }}</div>
+              <div style="font-size:12px;color:var(--text2);margin-top:2px">
+                <i class="fa-solid fa-user" style="color:var(--accent2);margin-right:4px"></i>{{ p.student.name }}
+                {% if p.domain %} · <span class="tag" style="font-size:10px">{{ p.domain }}</span>{% endif %}
+              </div>
+            </div>
+            <span class="badge badge-{{ p.status }}" style="flex-shrink:0;margin-left:10px"><span class="badge-dot"></span>{{ p.status }}</span>
+          </div>
+          {% if p.submissions %}
+          <div style="margin-top:7px;font-size:11px;color:var(--text3)">
+            <i class="fa-solid fa-upload" style="margin-right:4px"></i>{{ p.submissions|length }} submission{{ 's' if p.submissions|length != 1 }}
+            {% if not p.evaluations %} · <span style="color:var(--yellow)">⚠️ Not evaluated yet</span>{% else %} · <span style="color:var(--green)">✅ Evaluated ({{ "%.0f"|format(p.evaluations[0].total_marks) }}/10)</span>{% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </a>
+      {% endfor %}
+      {% else %}
+      <div style="padding:40px;text-align:center">
+        <div style="font-size:32px;margin-bottom:12px">📭</div>
+        <p style="color:var(--text2);font-size:13px">No projects assigned to you yet.</p>
+        <p style="color:var(--text3);font-size:12px;margin-top:6px">The admin will assign student projects to you.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div>
+    <!-- Recent Notifications -->
+    <div class="card mb-3">
+      <div class="card-header"><span class="card-title">🔔 Notifications</span></div>
+      <div class="card-body" style="padding:0">
+        {% if notifications %}
+        {% for n in notifications %}
+        <div style="padding:11px 16px;border-bottom:1px solid var(--border)">
+          <div style="font-size:13px">{{ n.message }}</div>
+          <div class="text-xs">{{ n.created_at.strftime('%b %d, %H:%M') }}</div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="padding:24px;text-align:center;color:var(--text2);font-size:13px">No new notifications</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Info box -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">ℹ️ Your Role</span></div>
+      <div class="card-body">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          {% for icon, color, text in [
+            ('user-shield','var(--accent2)','Admin approves student & faculty accounts'),
+            ('lightbulb','var(--yellow)','Students submit ideas directly to you for review'),
+            ('circle-check','var(--green)','You approve or reject project ideas'),
+            ('comments','var(--yellow)','You guide, comment and evaluate your assigned projects'),
+            ('star','var(--blue)','Your evaluation scores are final for your projects')
+          ] %}
+          <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--text2)">
+            <i class="fa-solid fa-{{ icon }}" style="color:{{ color }};margin-top:2px;width:14px;flex-shrink:0"></i>
+            <span>{{ text }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

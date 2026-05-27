@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}500 — Server Error{% endblock %}
+{% block topbar_title %}Error{% endblock %}
+{% block content %}
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center">
+  <div style="font-size:72px;margin-bottom:16px">⚙️</div>
+  <div style="font-family:var(--font-display);font-size:64px;font-weight:700;color:var(--yellow);opacity:0.3;line-height:1;margin-bottom:12px">500</div>
+  <h1 style="font-family:var(--font-display);font-size:22px;font-weight:600;margin-bottom:8px">Internal Server Error</h1>
+  <p style="color:var(--text2);font-size:14px;max-width:360px;margin-bottom:28px">Something went wrong on our end. Please try again.</p>
+  <div style="display:flex;gap:10px">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-primary"><i class="fa-solid fa-house"></i> Go Home</a>
+    <button onclick="location.reload()" class="btn btn-ghost"><i class="fa-solid fa-rotate"></i> Retry</button>
+  </div>
+</div>
+{% endblock %}
+{% block auth_content %}
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:var(--bg);text-align:center">
+  <div style="font-size:64px">⚙️</div>
+  <h1 style="font-family:var(--font-display);color:var(--text)">500 — Server Error</h1>
+  <a href="/login" class="btn btn-primary">Back to Login</a>
+</div>
+{% endblock %}

@@ -1,0 +1,908 @@
+{% extends "base.html" %}
+{% block title %}{{ project.title }}{% endblock %}
+{% block topbar_title %}Project Detail{% endblock %}
+{% block extra_css %}
+<style>
+.hero{background:linear-gradient(135deg,var(--surface2),var(--surface));border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin-bottom:20px}
+.hero-title{font-family:var(--font-display);font-size:20px;font-weight:700;line-height:1.3;margin-bottom:8px}
+.hero-meta{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.hero-meta span{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--text2)}
+.tab-nav{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto;scrollbar-width:none}
+.tab-nav::-webkit-scrollbar{display:none}
+.tab-btn{padding:9px 15px;font-size:12.5px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--font-body);white-space:nowrap;display:flex;align-items:center;gap:6px}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--accent2);border-bottom-color:var(--accent)}
+.panel{display:none}.panel.active{display:block}
+.ms-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)}
+.ms-row:last-child{border-bottom:none}
+.ms-check{width:20px;height:20px;border-radius:50%;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.2s;flex-shrink:0;font-size:10px}
+.ms-check.done{background:var(--green);border-color:var(--green);color:#fff}
+.ms-check.overdue{border-color:var(--red)}
+.chat-wrap{max-height:380px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-bottom:4px;scroll-behavior:smooth}
+.bubble-row{display:flex;flex-direction:column}
+.bubble-row.mine{align-items:flex-end}
+.bubble-row.theirs{align-items:flex-start}
+.bubble{padding:10px 14px;border-radius:12px;max-width:78%;font-size:13.5px;line-height:1.5}
+.bubble.mine{background:var(--accent-dim);border:1px solid rgba(108,99,255,0.2);border-bottom-right-radius:3px}
+.bubble.theirs{background:var(--surface2);border:1px solid var(--border);border-bottom-left-radius:3px}
+.bubble-meta{font-size:10.5px;color:var(--text3);margin-top:3px;display:flex;align-items:center;gap:6px}
+.mark-tile{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;text-align:center}
+.mark-num{font-family:var(--font-display);font-size:26px;font-weight:700;line-height:1}
+.mark-lbl{font-size:11px;color:var(--text2);margin-top:3px}
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius-sm);padding:28px;text-align:center;transition:border-color 0.2s;cursor:pointer}
+.upload-zone:hover{border-color:var(--accent)}
+.repo-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-top:12px}
+</style>
+{% endblock %}
+{% block content %}
+
+<!-- Hero -->
+<div class="hero">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px">
+        <span class="badge badge-{{project.status}}"><span class="badge-dot"></span>{{project.status}}</span>
+        <span class="badge badge-{{project.project_type}}">{{project.project_type}}</span>
+        {% if project.domain %}<span class="tag">{{project.domain}}</span>{% endif %}
+      </div>
+      <div class="hero-title">{{project.title}}</div>
+      <div class="hero-meta">
+        <span><i class="fa-solid fa-user" style="color:var(--accent2)"></i>{{project.student.name}}</span>
+        {% if project.faculty %}<span><i class="fa-solid fa-chalkboard-teacher" style="color:var(--green)"></i>Guide: {{project.faculty.name}}</span>{% endif %}
+        <span><i class="fa-solid fa-calendar"></i>{{project.created_at.strftime('%b %d, %Y')}}</span>
+        {% if project.updated_at and project.updated_at != project.created_at %}<span><i class="fa-solid fa-rotate"></i>Updated {{project.updated_at.strftime('%b %d')}}</span>{% endif %}
+      </div>
+    </div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;flex-shrink:0">
+      {% if project.github_link %}<a href="{{project.github_link}}" target="_blank" class="btn btn-ghost btn-sm"><i class="fa-brands fa-github"></i>Repo</a>{% endif %}
+      {% if project.deployment_link %}<a href="{{project.deployment_link}}" target="_blank" class="btn btn-ghost btn-sm"><i class="fa-solid fa-globe"></i>Live</a>{% endif %}
+      {% if current_user.role=='student' and project.student_id==current_user.id and project.status in ('pending','rejected') %}
+      <a href="{{url_for('edit_project',project_id=project.id)}}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-pen"></i>Edit</a>
+      {% endif %}
+      {% if current_user.role=='student' and project.student_id==current_user.id and project.status in ('approved', 'completed') %}
+      <button class="btn btn-ghost btn-sm" onclick="generateDocs()" id="docsBtn"><i class="fa-solid fa-file-alt"></i> Generate Docs</button>
+      {% endif %}
+    </div>
+  </div>
+  {% if project.description %}
+  <p style="margin-top:14px;color:var(--text2);font-size:13.5px;line-height:1.7">{{project.description}}</p>
+  {% endif %}
+  {% if project.feedback %}
+  <div style="margin-top:14px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:var(--radius-sm);padding:11px 14px;font-size:13px">
+    <strong style="color:var(--yellow)"><i class="fa-solid fa-comment-dots"></i> Faculty Feedback:</strong>
+    <span style="color:var(--text2);margin-left:6px">{{project.feedback}}</span>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Team Details Section -->
+{% if project.status in ('approved', 'completed') %}
+  {% if not team_data and current_user.id == project.student_id %}
+  <div class="card mb-3" style="border-color: var(--accent);">
+    <div class="card-header"><span class="card-title">👥 Submit Team Details</span></div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('submit_team', project_id=project.id) }}">
+        <div class="form-row">
+          <div class="form-group"><label>Project Name</label><input type="text" name="project_name" value="{{ project.title }}" required></div>
+          <div class="form-group"><label>Team Leader Name</label><input type="text" name="leader_name" value="{{ current_user.name }}" required></div>
+          <div class="form-group"><label>Team Leader Roll No.</label><input type="text" name="leader_roll" required></div>
+        </div>
+        <div class="form-group"><label>Project Description</label><textarea name="description" rows="2" required>{{ project.description }}</textarea></div>
+        
+        <div style="font-weight:600;margin:16px 0 8px;font-size:14px">Team Members</div>
+        <div class="grid-2">
+          {% for i in range(1, 5) %}
+          <div style="background:var(--surface2);padding:10px;border-radius:var(--radius-sm)">
+            <div style="font-size:12px;font-weight:600;margin-bottom:6px">Member {{ i }}</div>
+            <div style="display:flex;gap:6px">
+              <input type="text" name="member_{{ i }}_name" placeholder="Name" style="flex:1;margin-bottom:0;font-size:12px;padding:6px" required>
+              <input type="text" name="member_{{ i }}_roll" placeholder="Roll No" style="flex:1;margin-bottom:0;font-size:12px;padding:6px" required>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div style="margin-top:14px;text-align:right">
+          <button type="submit" class="btn btn-primary"><i class="fa-solid fa-users"></i> Save Team Details</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% elif team_data %}
+  <div class="card mb-3">
+    <div class="card-header"><span class="card-title">👥 Team Details</span></div>
+    <div class="card-body">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-size:12px;color:var(--text3)">Project Name</div>
+          <div style="font-weight:600;font-size:14px">{{ team_data.project_name }}</div>
+        </div>
+        <div>
+          <div style="font-size:12px;color:var(--text3)">Team Leader</div>
+          <div style="font-weight:600;font-size:14px"><i class="fa-solid fa-crown" style="color:var(--yellow);margin-right:4px"></i>{{ team_data.leader_name }} ({{ team_data.leader_roll }})</div>
+        </div>
+        {% if project.faculty %}
+        <div>
+          <div style="font-size:12px;color:var(--text3)">Assigned Guide</div>
+          <div style="font-weight:600;font-size:14px;color:var(--green)"><i class="fa-solid fa-chalkboard-teacher" style="margin-right:4px"></i>{{ project.faculty.name }}</div>
+        </div>
+        {% endif %}
+      </div>
+      <div style="margin-top:12px">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Members</div>
+        {% if team_data.members %}
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+          {% for m in team_data.members %}
+            <span class="tag"><i class="fa-solid fa-user" style="margin-right:4px"></i>{{ m.name }} ({{ m.roll }})</span>
+          {% endfor %}
+          </div>
+        {% else %}
+          <div style="font-size:13px;color:var(--text2)">Solo Project</div>
+        {% endif %}
+      </div>
+      
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <div>
+          {% if team_data.get('approved') %}
+             <span class="badge badge-completed"><i class="fa-solid fa-check"></i> Team Approved</span>
+          {% else %}
+             <span class="badge badge-pending">Pending Team Approval</span>
+          {% endif %}
+        </div>
+        <div>
+          {% if not team_data.get('approved') and current_user.role in ('admin', 'faculty') %}
+          <form method="POST" action="{{ url_for('approve_team', project_id=project.id) }}" style="display:inline-block">
+            <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-check"></i> Approve Team Details</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+{% endif %}
+
+<!-- Tab nav -->
+<div class="tab-nav" id="tabNav">
+
+  <button class="tab-btn active" onclick="showTab('submissions',this)"><i class="fa-solid fa-upload"></i>Submissions{% if submissions %} <span style="background:var(--accent-dim);color:var(--accent2);border-radius:20px;padding:0 6px;font-size:10px">{{submissions|length}}</span>{% endif %}</button>
+
+  <button class="tab-btn" onclick="showTab('evaluation',this)"><i class="fa-solid fa-star"></i>Evaluation{% if evaluation %} <span style="background:var(--green-dim);color:var(--green);border-radius:20px;padding:0 6px;font-size:10px">{{"%g"|format(evaluation.total_marks)}}</span>{% endif %}</button>
+  <button class="tab-btn" onclick="showTab('chat',this)"><i class="fa-solid fa-comments"></i>Discussion{% if comments %} <span style="background:var(--surface3);border-radius:20px;padding:0 6px;font-size:10px;color:var(--text2)">{{comments|length}}</span>{% endif %}</button>
+  {% if current_user.role in ('admin','faculty') %}
+  <button class="tab-btn {{'active' if current_user.role == 'admin'}}" onclick="showTab('faculty',this)">
+    {% if current_user.role=='admin' %}<i class="fa-solid fa-gavel"></i>Admin Actions
+    {% else %}<i class="fa-solid fa-chalkboard-teacher"></i>My Assignment{% endif %}
+  </button>
+  {% endif %}
+</div>
+
+
+
+<!-- ═══ SUBMISSIONS ════════════════════════════════════════════════ -->
+<div class="panel active" id="panel-submissions">
+  {% if project.presentation_date or project.frontend_date or project.backend_date or project.report_date %}
+  <div class="card mb-3" style="border-left: 4px solid var(--accent); background: rgba(34,211,165,0.03);">
+    <div class="card-header"><span class="card-title">⏰ Project Deadlines</span></div>
+    <div class="card-body">
+      <div style="display:flex;gap:20px;flex-wrap:wrap">
+        {% if project.presentation_date %}<span class="tag"><i class="fa-solid fa-clock"></i> Presentation: {{ project.presentation_date.strftime('%b %d, %I:%M %p') }}</span>{% endif %}
+        {% if project.frontend_date %}<span class="tag"><i class="fa-solid fa-clock"></i> Frontend: {{ project.frontend_date.strftime('%b %d, %I:%M %p') }}</span>{% endif %}
+        {% if project.backend_date %}<span class="tag"><i class="fa-solid fa-clock"></i> Backend: {{ project.backend_date.strftime('%b %d, %I:%M %p') }}</span>{% endif %}
+        {% if project.report_date %}<span class="tag"><i class="fa-solid fa-clock"></i> Report: {{ project.report_date.strftime('%b %d, %I:%M %p') }}</span>{% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% if current_user.role=='student' and project.student_id==current_user.id %}
+  {% if project.status in ('approved', 'completed') and team_data and team_data.get('approved') %}
+  <div class="card mb-3">
+    <div class="card-header"><span class="card-title">📤 New Submission</span></div>
+    <div class="card-body">
+      <form method="POST" action="{{url_for('submit_work',project_id=project.id)}}" enctype="multipart/form-data">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Submission Type</label>
+            <select name="submission_type" id="subType" onchange="toggleSubFields(this.value)" required>
+              <option value="presentation">📊 Presentation (PPT/PDF)</option>
+              <option value="frontend">🎨 Frontend (ZIP)</option>
+              <option value="backend">⚙️ Backend (ZIP)</option>
+              <option value="report">📄 Report (PDF/PPT)</option>
+              <option value="video">🎥 Demo Video (Link)</option>
+              <option value="github">💻 GitHub Link</option>
+            </select>
+          </div>
+          <div class="form-group" id="fileGroup">
+            <label>Upload File <span style="color:var(--text3)" id="fileHint">(PDF, PPT — max 50MB)</span></label>
+            <input type="file" name="file" id="fileInput" accept=".pdf,.ppt,.pptx">
+          </div>
+        </div>
+        <div id="githubGroup" style="display:none">
+          <div class="form-group">
+            <label>GitHub Repository URL</label>
+            <input type="url" name="github_link" id="ghInput" placeholder="https://github.com/username/repo">
+            <div id="repoPreview" class="repo-card" style="display:none"></div>
+          </div>
+        </div>
+        <div id="videoGroup" style="display:none">
+          <div class="form-group">
+            <label>Demo Video URL</label>
+            <input type="url" name="demo_video" placeholder="https://youtube.com/watch?v=...">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <textarea name="notes" rows="2" placeholder="Any notes about this submission..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-upload"></i> Submit</button>
+      </form>
+    </div>
+  </div>
+  {% elif project.status=='approved' and not team_data %}
+  <div class="card mb-3">
+    <div class="card-body" style="text-align:center;padding:22px;color:var(--text2)">
+      <i class="fa-solid fa-users" style="font-size:22px;color:var(--yellow);display:block;margin-bottom:8px"></i>
+      Please submit your completely filled team details above to unlock submissions.
+    </div>
+  </div>
+  {% elif project.status=='approved' and team_data and not team_data.get('approved') %}
+  <div class="card mb-3">
+    <div class="card-body" style="text-align:center;padding:22px;color:var(--text2)">
+      <i class="fa-solid fa-clock" style="font-size:22px;color:var(--yellow);display:block;margin-bottom:8px"></i>
+      Submissions will unlock once your assigned faculty guide or the admin approves your team details.
+    </div>
+  </div>
+  {% elif project.status=='pending' %}
+  <div class="card mb-3">
+    <div class="card-body" style="text-align:center;padding:22px;color:var(--text2)">
+      <i class="fa-solid fa-clock" style="font-size:22px;color:var(--yellow);display:block;margin-bottom:8px"></i>
+      Submissions are unlocked once your project is approved.
+    </div>
+  </div>
+  {% elif project.status=='rejected' %}
+  <div class="card mb-3">
+    <div class="card-body" style="text-align:center;padding:22px;color:var(--text2)">
+      <i class="fa-solid fa-circle-xmark" style="font-size:22px;color:var(--red);display:block;margin-bottom:8px"></i>
+      Project was rejected. <a href="{{url_for('edit_project',project_id=project.id)}}" style="color:var(--accent2)">Edit and resubmit</a> to enable submissions.
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">📁 All Submissions ({{submissions|length}})</span></div>
+    <div class="card-body" style="padding:0">
+      {% if submissions %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Type</th><th>Files & Links</th><th>Notes</th><th>Date</th>{% if current_user.role=='faculty' or (current_user.role=='student' and project.student_id==current_user.id) %}<th></th>{% endif %}</tr></thead>
+          <tbody>
+          {% for sub in submissions %}
+          <tr>
+            <td><span class="tag">{{sub.submission_type}}</span></td>
+            <td>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                {% if sub.file_path %}<a href="/download/{{sub.file_path}}" class="btn btn-ghost btn-xs"><i class="fa-solid fa-download"></i> File</a>{% endif %}
+                {% if sub.github_link %}<a href="{{sub.github_link}}" target="_blank" class="btn btn-ghost btn-xs"><i class="fa-brands fa-github"></i> Repo</a>{% endif %}
+                {% if sub.deployment_link %}<a href="{{sub.deployment_link}}" target="_blank" class="btn btn-ghost btn-xs"><i class="fa-solid fa-globe"></i> Live</a>{% endif %}
+                {% if sub.demo_video %}<a href="{{sub.demo_video}}" target="_blank" class="btn btn-ghost btn-xs"><i class="fa-brands fa-youtube"></i> Video</a>{% endif %}
+              </div>
+            </td>
+            <td style="color:var(--text2);font-size:12.5px;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{sub.notes or '—'}}</td>
+            <td class="text-xs">{{sub.submitted_at.strftime('%b %d, %H:%M')}}</td>
+            {% if current_user.role in ('faculty','admin') or (current_user.role=='student' and project.student_id==current_user.id) %}
+            <td>
+              <form method="POST" action="/submission/{{sub.id}}/delete" onsubmit="return confirm('Delete this submission?')">
+                <button type="submit" class="btn btn-danger btn-xs"><i class="fa-solid fa-trash"></i></button>
+              </form>
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div style="padding:32px;text-align:center;color:var(--text2);font-size:13px">No submissions yet.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══ EVALUATION ═════════════════════════════════════════════════ -->
+<div class="panel" id="panel-evaluation">
+  {% if (current_user.role=='faculty' and project.faculty_id==current_user.id or current_user.role=='admin') and project.status in ('approved','completed') %}
+  <div class="card mb-3">
+    <div class="card-header">
+      <span class="card-title">⭐ {{'Update' if evaluation else 'Assign'}} Evaluation</span>
+    </div>
+    <div class="card-body">
+      <form method="POST" action="{{url_for('evaluate_project',project_id=project.id)}}">
+        <div class="grid-2" style="margin-bottom:14px">
+          {% for field, label, color in [
+            ('presentation_marks','Presentation','var(--accent2)'),
+            ('frontend_marks','Frontend','var(--green)'),
+            ('backend_marks','Backend','var(--yellow)'),
+            ('report_marks','Project Report','var(--purple)'),
+            ('overall_marks','Overall Performance','var(--blue)')
+          ] %}
+          <div class="form-group">
+            <label>{{label}} <span style="color:var(--text3)">(1 – 10)</span></label>
+            <input type="number" name="{{field}}" min="0" max="10" step="0.5"
+              value="{{evaluation|attr(field) if evaluation else ''}}"
+              oninput="updateTotal()" id="f_{{field}}" style="border-color:{{color}}20">
+          </div>
+          {% endfor %}
+        </div>
+        <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <span style="font-size:13px;font-weight:600">Calculated Average</span>
+          <span style="font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--accent2)" id="totalDisplay">
+            {{("%.1f"|format(evaluation.total_marks)) if evaluation else '0.0'}}
+          </span><span style="font-size:13px;color:var(--text3)"> / 50</span>
+        </div>
+        <div class="form-group">
+          <label>Remarks / Feedback
+            <button type="button" id="aiFeedbackBtn" class="btn btn-xs btn-ghost" style="float:right;margin-top:-6px" onclick="generateAIFeedback()">
+              <i class="fa-solid fa-sparkles" style="color:var(--accent2)"></i> Generate AI Feedback
+            </button>
+          </label>
+          <textarea name="remarks" rows="3" placeholder="Detailed feedback for the student...">{{evaluation.remarks if evaluation else ''}}</textarea>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-save"></i> Save Evaluation</button>
+          <button type="button" id="aiSuggestMarksBtn" class="btn btn-ghost btn-sm" onclick="suggestAIMarks()">
+            <i class="fa-solid fa-robot" style="color:var(--accent2)"></i> AI Suggest Marks
+          </button>
+          <span id="aiSuggestStatus" style="font-size:12px;color:var(--text3);display:none"></span>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if evaluation %}
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">📊 Evaluation Results</span>
+      <span class="text-xs">by {{evaluation.faculty.name}} · {{evaluation.evaluated_at.strftime('%b %d, %Y %H:%M')}}</span>
+    </div>
+    <div class="card-body">
+      <div class="grid-2" style="gap:10px;margin-bottom:18px">
+        {% for label, val, col in [
+          ('Presentation',evaluation.presentation_marks,'var(--accent2)'),
+          ('Frontend',evaluation.frontend_marks,'var(--green)'),
+          ('Backend',evaluation.backend_marks,'var(--yellow)'),
+          ('Project Report',evaluation.report_marks,'var(--purple)'),
+          ('Overall',evaluation.overall_marks,'var(--blue)')
+        ] %}
+        <div class="mark-tile">
+          <div class="mark-num" style="color:{{col}}">{{"%g"|format(val)}}</div>
+          <div class="mark-lbl">{{label}}</div>
+          <div class="progress" style="margin-top:8px">
+            <div class="progress-bar" style="width:{{val*10}}%;background:{{col}}"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:18px;text-align:center;margin-bottom:14px">
+        <div style="font-family:var(--font-display);font-size:46px;font-weight:700;line-height:1;color:{% if evaluation.total_marks>=37.5 %}var(--green){% elif evaluation.total_marks>=25 %}var(--yellow){% else %}var(--red){% endif %}">
+          {{"%.1f"|format(evaluation.total_marks)}}<span style="font-size:20px;color:var(--text3)">/50</span>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-top:6px">
+          {% if evaluation.total_marks>=37.5 %}🌟 Excellent{% elif evaluation.total_marks>=30 %}✅ Good{% elif evaluation.total_marks>=25 %}⚠️ Average{% else %}❌ Needs Improvement{% endif %}
+        </div>
+      </div>
+      {% if evaluation.remarks %}
+      <div style="background:var(--surface3);border-radius:var(--radius-sm);padding:13px;font-size:13.5px;color:var(--text2)">
+        <strong style="color:var(--text)">Remarks:</strong> {{evaluation.remarks}}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% elif current_user.role=='student' %}
+  <div class="card"><div class="card-body" style="text-align:center;padding:36px;color:var(--text2)">
+    <i class="fa-solid fa-star" style="font-size:28px;color:var(--yellow);display:block;margin-bottom:10px;opacity:0.4"></i>
+    <p>Your project hasn't been evaluated yet.</p>
+    <p class="text-xs" style="margin-top:6px">Your faculty guide will evaluate once you complete all submissions.</p>
+  </div></div>
+  {% endif %}
+</div>
+
+<!-- ═══ DISCUSSION ═════════════════════════════════════════════════ -->
+<div class="panel" id="panel-chat">
+  <div class="card">
+    <div class="card-header"><span class="card-title">💬 Project Discussion</span></div>
+    <div class="card-body">
+      <div class="chat-wrap" id="chatMessages">
+        {% if comments %}
+        {% for c in comments %}
+        {% set is_mine = c.user_id==current_user.id %}
+        <div class="bubble-row {{'mine' if is_mine else 'theirs'}}">
+          <div class="bubble {{'mine' if is_mine else 'theirs'}}">
+            {{c.content}}
+          </div>
+          <div class="bubble-meta" style="{{'justify-content:flex-end' if is_mine}}">
+            {% if not is_mine %}<div style="width:18px;height:18px;border-radius:50%;background:{{c.user.avatar_color}};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff">{{c.user.name[0]}}</div>{% endif %}
+            <span>{{c.user.name}}</span>
+            {% if c.module!='general' %}<span class="tag" style="font-size:10px">{{c.module}}</span>{% endif %}
+            <span>{{c.created_at.strftime('%b %d, %H:%M')}}</span>
+            {% if c.user_id==current_user.id or current_user.role in ('faculty','admin') %}
+            <button onclick="deleteComment({{c.id}},this)" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0;font-size:11px;line-height:1" title="Delete">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="text-align:center;padding:28px;color:var(--text3);font-size:13px">
+          <i class="fa-solid fa-comments" style="font-size:24px;display:block;margin-bottom:8px;opacity:0.3"></i>
+          No messages yet. Start the conversation!
+        </div>
+        {% endif %}
+      </div>
+      <div class="divider"></div>
+      <form method="POST" action="{{url_for('add_comment',project_id=project.id)}}" style="display:flex;gap:8px;align-items:flex-end">
+        <div style="flex:1">
+          <div style="display:flex;gap:6px;margin-bottom:6px">
+            {% for mod in ['general','idea','presentation','code','evaluation'] %}
+            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;font-weight:500;text-transform:capitalize;color:var(--text2)">
+              <input type="radio" name="module" value="{{mod}}" {{'checked' if mod=='general'}} style="width:auto;display:inline-block;accent-color:var(--accent)">
+              {{mod}}
+            </label>
+            {% endfor %}
+          </div>
+          <input type="text" name="content" placeholder="Type a message..." required style="margin-bottom:0">
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm" style="flex-shrink:0"><i class="fa-solid fa-paper-plane"></i></button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ADMIN / FACULTY PANEL ══════════════════════════════════════ -->
+{% if current_user.role in ('admin','faculty') %}
+<div class="panel {{'active' if current_user.role == 'admin'}}" id="panel-faculty">
+
+  {% if current_user.role == 'faculty' and project.faculty_id == current_user.id %}
+  <!-- Manage Deadlines -->
+  <div class="card mb-3">
+    <div class="card-header"><span class="card-title">📅 Manage Deadlines</span></div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('set_deadlines', project_id=project.id) }}">
+        <div class="grid-2" style="margin-bottom:14px">
+          <div class="form-group">
+            <label>Presentation Due</label>
+            <input type="datetime-local" name="presentation_date" value="{{ project.presentation_date.strftime('%Y-%m-%dT%H:%M') if project.presentation_date else '' }}">
+          </div>
+          <div class="form-group">
+            <label>Frontend Due</label>
+            <input type="datetime-local" name="frontend_date" value="{{ project.frontend_date.strftime('%Y-%m-%dT%H:%M') if project.frontend_date else '' }}">
+          </div>
+          <div class="form-group">
+            <label>Backend Due</label>
+            <input type="datetime-local" name="backend_date" value="{{ project.backend_date.strftime('%Y-%m-%dT%H:%M') if project.backend_date else '' }}">
+          </div>
+          <div class="form-group">
+            <label>Report Due</label>
+            <input type="datetime-local" name="report_date" value="{{ project.report_date.strftime('%Y-%m-%dT%H:%M') if project.report_date else '' }}">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-save"></i> Save Deadlines</button>
+      </form>
+    </div>
+  </div>
+  <!-- ── FACULTY ONLY: Review Idea & Viva ── -->
+  <div class="card mb-3">
+    <div class="card-header">
+      <span class="card-title">📝 Faculty Review</span>
+    </div>
+    <div class="card-body">
+      {% if project.status in ('approved', 'completed') %}
+      <div style="margin-bottom:16px;padding:12px;background:rgba(34,211,165,0.06);border:1px solid rgba(34,211,165,0.2);border-radius:var(--radius-sm);color:var(--green)">
+        <i class="fa-solid fa-circle-check"></i> Project idea is approved. Guide the student using the Discussion tab.
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:16px;">
+        <div style="font-weight:600;margin-bottom:10px;font-size:14px;"><i class="fa-solid fa-robot" style="color:var(--accent2);margin-right:6px"></i>AI Assistant</div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="generateAIViva()">
+          <i class="fa-solid fa-clipboard-question"></i> Generate Viva Questions
+        </button>
+        <div id="vivaBox" style="display:none;margin-top:12px;background:var(--surface2);padding:12px;border-radius:var(--radius-sm)"></div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  
+  {% elif current_user.role == 'admin' %}
+  <!-- ── ADMIN ONLY: Review Idea & Reassign Faculty ── -->
+  <div class="grid-2">
+    <div>
+      <div class="card mb-3">
+        <div class="card-header"><span class="card-title">📊 Project Progress</span></div>
+        <div class="card-body">
+          {% set phases = [
+            ('Idea Submitted', project.status != 'pending' or project.created_at is not none, 'lightbulb'),
+            ('Approved', project.status in ('approved','completed'), 'circle-check'),
+            ('Presentation', submissions|selectattr('submission_type','eq','presentation')|list|length > 0, 'presentation-screen'),
+            ('Code Submitted', project.github_link is not none, 'code-branch'),
+            ('Final Submitted', project.status == 'completed', 'flag-checkered'),
+            ('Evaluated', evaluation is not none, 'star')
+          ] %}
+          {% for label, done, icon in phases %}
+          <div style="display:flex;align-items:center;gap:12px;padding:9px 0;{% if not loop.last %}border-bottom:1px solid var(--border){% endif %}">
+            <div style="width:28px;height:28px;border-radius:50%;background:{{'var(--green-dim)' if done else 'var(--surface3)'}};border:2px solid {{'var(--green)' if done else 'var(--border2)'}};display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0">
+              <i class="fa-solid fa-{{icon}}" style="color:{{'var(--green)' if done else 'var(--text3)'}}"></i>
+            </div>
+            <span style="font-size:13px;{{'color:var(--text2)' if not done else ''}}">{{label}}</span>
+            {% if done %}<i class="fa-solid fa-check" style="margin-left:auto;color:var(--green);font-size:11px"></i>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card mb-3">
+    <div class="card-header"><span class="card-title">⚖️ Admin Control</span></div>
+    <div class="card-body">
+      {% if project.status == 'pending' %}
+      <form method="POST" action="{{url_for('review_project', project_id=project.id)}}" style="margin-bottom:24px">
+        <h4 style="font-size:14px;margin-bottom:10px;font-weight:600">Approve/Reject Idea</h4>
+        <div style="margin-bottom:16px;padding:12px;border-radius:var(--radius-sm);background:{% if project.similarity_score and project.similarity_score > 60 %}#fee2e2{% elif project.similarity_score and project.similarity_score > 30 %}#fef3c7{% else %}#dcfce7{% endif %};color:var(--text);border:1px solid {% if project.similarity_score and project.similarity_score > 60 %}#f87171{% elif project.similarity_score and project.similarity_score > 30 %}#fbbf24{% else %}#4ade80{% endif %}">
+          <i class="fa-solid fa-robot" style="margin-right:6px"></i> <strong>AI Similarity Check: {{ project.similarity_score|default(0.0) }}%</strong>
+          <div style="margin:4px 0 0 0;font-size:13px;color:var(--text2)">{{ project.similarity_reason|default('Not evaluated')|safe }}</div>
+        </div>
+        <div class="form-group">
+          <label>Feedback to Student</label>
+          <textarea name="feedback" rows="3" placeholder="Provide constructive feedback..."></textarea>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button type="submit" name="action" value="approve" class="btn btn-success">
+            <i class="fa-solid fa-check"></i> Approve Idea
+          </button>
+          <button type="submit" name="action" value="reject" class="btn btn-danger">
+            <i class="fa-solid fa-xmark"></i> Reject Idea
+          </button>
+        </div>
+      </form>
+      <hr style="margin:20px 0;border-color:var(--border)">
+      {% elif project.status == 'rejected' %}
+      <div style="background:var(--red-dim);border:1px solid rgba(248,113,113,0.2);border-radius:var(--radius-sm);padding:13px 16px;margin-bottom:18px">
+        <div style="font-size:13px;color:var(--red);font-weight:600;margin-bottom:5px">
+          <i class="fa-solid fa-circle-xmark"></i> Project Rejected
+        </div>
+        <div style="font-size:13px;color:var(--text2)">{{project.feedback or 'No feedback provided'}}</div>
+      </div>
+      <form method="POST" action="{{url_for('review_project', project_id=project.id)}}" style="margin-bottom:24px">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:12px">
+          You can reconsider and approve this project if the student has updated it.
+        </div>
+        <div class="form-group">
+          <label>Updated Feedback</label>
+          <textarea name="feedback" rows="2">{{project.feedback or ''}}</textarea>
+        </div>
+        <button type="submit" name="action" value="approve" class="btn btn-success btn-sm">
+          <i class="fa-solid fa-rotate-left"></i> Reconsider & Approve
+        </button>
+      </form>
+      <hr style="margin:20px 0;border-color:var(--border)">
+      {% endif %}
+
+      {% if team_data %}
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:13px 16px;margin-bottom:18px;display:flex;align-items:center;gap:10px">
+        <i class="fa-solid fa-chalkboard-teacher" style="color:var(--text2)"></i>
+        <span style="font-size:13px">
+          Currently assigned to:
+          <strong>{{project.faculty.name if project.faculty else 'No one'}}</strong>
+        </span>
+      </div>
+      <form method="POST" action="{{url_for('reassign_faculty', project_id=project.id)}}">
+        <div class="form-group">
+          <label>{{ 'Reassign to Different Faculty' if project.faculty else 'Assign Faculty Guide' }}</label>
+          <select name="faculty_id">
+            {% for f in faculty_list %}
+            <option value="{{f.id}}" {{'selected' if project.faculty_id == f.id}}>
+              {{f.name}} — {{f.guided_projects|length}} projects
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-ghost btn-sm">
+          <i class="fa-solid fa-rotate"></i> {{ 'Reassign Faculty' if project.faculty else 'Assign Faculty' }}
+        </button>
+      </form>
+      {% elif project.status == 'approved' %}
+      <div style="background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:var(--radius-sm);padding:13px 16px;margin-bottom:18px;color:var(--yellow);font-size:13px">
+        <i class="fa-solid fa-clock" style="margin-right:6px"></i> Waiting for the student to submit Team Details before assigning a guide.
+      </div>
+      {% endif %}
+      {% if project.status == 'approved' %}
+      <hr style="margin:20px 0;border-color:var(--border)">
+      <form method="POST" action="{{url_for('complete_project', project_id=project.id)}}">
+        <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('Mark this project as completed?')">
+          <i class="fa-solid fa-flag-checkered"></i> Mark as Completed
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  </div>
+  </div>
+  {% else %}
+  <div class="card"><div class="card-body" style="padding:24px;text-align:center;color:var(--text2)">You do not have permission to view this panel or you are not assigned to this project.</div></div>
+  {% endif %}
+</div>
+{% endif %}
+
+<script>
+// Tab switching with URL hash persistence
+function showTab(id, btn) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  btn.classList.add('active');
+  history.replaceState(null,'','#'+id);
+  if(id==='chat') setTimeout(()=>{const c=document.getElementById('chatMessages');if(c)c.scrollTop=c.scrollHeight},50);
+}
+// Restore tab from hash
+window.addEventListener('load',()=>{
+  const hash=location.hash.replace('#','');
+  if(hash){
+    const btn=[...document.querySelectorAll('.tab-btn')].find(b=>b.getAttribute('onclick')?.includes("'"+hash+"'"));
+    if(btn)btn.click();
+  }
+  document.getElementById('chatMessages')?.scrollTo?.(0,99999);
+});
+
+// Milestone
+async function toggleMilestone(id, el) {
+  if(el.classList.contains('done')) return;
+  await fetch('/projects/{{project.id}}/milestone/'+id+'/done',{method:'POST'});
+  el.classList.add('done');
+  el.innerHTML='<i class="fa-solid fa-check"></i>';
+  const row=document.getElementById('ms-'+id);
+  const lbl=row.querySelector('.badge');
+  if(lbl){lbl.className='badge badge-approved';lbl.textContent='completed';}
+  const txt=row.querySelector('div[style]')||row.querySelectorAll('div')[1]?.querySelector('div');
+  if(txt&&txt.style){txt.style.textDecoration='line-through';txt.style.color='var(--text3)';}
+}
+async function deleteMilestone(id) {
+  if(!confirm('Delete this milestone?')) return;
+  const r=await fetch('/projects/{{project.id}}/milestone/'+id+'/delete',{method:'POST'});
+  if(r.ok) document.getElementById('ms-'+id)?.remove();
+}
+
+// Toggle sub fields
+function toggleSubFields(val) {
+  const fileGroup = document.getElementById('fileGroup');
+  const githubGroup = document.getElementById('githubGroup');
+  const videoGroup = document.getElementById('videoGroup');
+  const fileHint = document.getElementById('fileHint');
+  const fileInput = document.getElementById('fileInput');
+
+  if (val === 'presentation' || val === 'report') {
+    fileGroup.style.display = 'block';
+    githubGroup.style.display = 'none';
+    videoGroup.style.display = 'none';
+    fileHint.textContent = '(PDF, PPT — max 50MB)';
+    fileInput.accept = '.pdf,.ppt,.pptx';
+  } else if (val === 'frontend' || val === 'backend') {
+    fileGroup.style.display = 'block';
+    githubGroup.style.display = 'none';
+    videoGroup.style.display = 'none';
+    fileHint.textContent = '(ZIP Folder — max 50MB)';
+    fileInput.accept = '.zip,.rar';
+  } else if (val === 'github') {
+    fileGroup.style.display = 'none';
+    githubGroup.style.display = 'block';
+    videoGroup.style.display = 'none';
+  } else if (val === 'video') {
+    fileGroup.style.display = 'none';
+    githubGroup.style.display = 'none';
+    videoGroup.style.display = 'block';
+  }
+}
+
+// GitHub live preview
+function setupGhPreview(inputId, previewId) {
+  const inp=document.getElementById(inputId);
+  const pre=document.getElementById(previewId);
+  if(!inp||!pre) return;
+  let timer;
+  inp.addEventListener('input',()=>{
+    clearTimeout(timer);
+    if(!inp.value.includes('github.com')){pre.style.display='none';return;}
+    timer=setTimeout(()=>{
+      fetch('/api/github-info?url='+encodeURIComponent(inp.value))
+        .then(r=>r.json()).then(d=>{
+          if(d.error){pre.style.display='none';return;}
+          pre.style.display='block';
+          pre.innerHTML=`<strong>${d.name}</strong>${d.description?' — '+d.description:''}<br>
+            <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+              <span class="tag">⭐ ${d.stars}</span>${d.language?`<span class="tag">${d.language}</span>`:''}
+            </div>`;
+        });
+    },600);
+  });
+}
+setupGhPreview('ghInput','repoPreview');
+setupGhPreview('ghLinkInput','ghPreview');
+
+// Evaluation total calculator
+function updateTotal() {
+  const ids=['f_presentation_marks','f_frontend_marks','f_backend_marks','f_report_marks','f_overall_marks'];
+  const vals=ids.map(id=>parseFloat(document.getElementById(id)?.value)||0);
+  const total = (vals.reduce((a,b)=>a+b,0)).toFixed(1);
+  document.getElementById('totalDisplay').textContent=total;
+}
+
+// Comment delete
+async function deleteComment(id,btn) {
+  if(!confirm('Delete this message?')) return;
+  const r=await fetch('/comment/'+id+'/delete',{method:'POST'});
+  if(r.ok) btn.closest('.bubble-row')?.remove();
+}
+
+// AI Features
+async function suggestAIMarks() {
+  const btn = document.getElementById('aiSuggestMarksBtn');
+  const status = document.getElementById('aiSuggestStatus');
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analyzing...';
+  btn.disabled = true;
+  status.textContent = "AI is reviewing submissions...";
+  status.style.display = "inline";
+  
+  try {
+    const r = await fetch('/api/ai/suggest_marks/{{project.id}}', {method: 'POST'});
+    const d = await r.json();
+    if(d.error) {
+      status.textContent = d.error;
+      status.style.color = "var(--red)";
+    } else if(d.marks) {
+      let parts = [];
+      if ('presentation' in d.marks) {
+        document.getElementById('f_presentation_marks').value = d.marks.presentation;
+        parts.push(`Presentation (${d.marks.presentation})`);
+      }
+      if ('frontend' in d.marks) {
+        document.getElementById('f_frontend_marks').value = d.marks.frontend;
+        parts.push(`Frontend (${d.marks.frontend})`);
+      }
+      if ('backend' in d.marks) {
+        document.getElementById('f_backend_marks').value = d.marks.backend;
+        parts.push(`Backend (${d.marks.backend})`);
+      }
+      if ('report' in d.marks) {
+        document.getElementById('f_report_marks').value = d.marks.report;
+        parts.push(`Report (${d.marks.report})`);
+      }
+      updateTotal();
+      
+      if (parts.length > 0) {
+        status.innerHTML = `<strong>AI Suggestions:</strong> ` + parts.join(', ');
+        status.style.color = "var(--accent2)";
+      } else {
+        status.textContent = "No valid submissions found to evaluate.";
+        status.style.color = "var(--yellow)";
+      }
+    }
+  } catch(e) {
+    status.textContent = "Failed to fetch suggestions.";
+    status.style.color = "var(--red)";
+  }
+  
+  btn.innerHTML = '<i class="fa-solid fa-robot" style="color:var(--accent2)"></i> AI Suggest Marks';
+  btn.disabled = false;
+}
+
+async function generateAIFeedback() {
+  const btn = document.getElementById('aiFeedbackBtn');
+  const ids = ['f_presentation_marks','f_frontend_marks','f_backend_marks','f_overall_marks'];
+  const vals = ids.map(id=>parseFloat(document.getElementById(id)?.value)||0);
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/ai/feedback', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({project_id: {{project.id}}, presentation: vals[0], frontend: vals[1], backend: vals[2], overall: vals[3]})
+    });
+    const d = await r.json();
+    if(d.error) alert(d.error);
+    else document.querySelector('textarea[name="remarks"]').value = d.feedback;
+  } catch(e) { alert('Failed to generate feedback'); }
+  btn.innerHTML = '<i class="fa-solid fa-sparkles" style="color:var(--accent2)"></i> Generate AI Feedback';
+  btn.disabled = false;
+}
+
+async function generateAIViva() {
+  const btn = event.currentTarget;
+  const box = document.getElementById('vivaBox');
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+  btn.disabled = true;
+  box.style.display = 'block';
+  box.innerHTML = '<div style="color:var(--text2);font-size:13px"><i class="fa-solid fa-spinner fa-spin"></i> Analyzing project to generate Viva questions...</div>';
+  
+  try {
+    const r = await fetch('/api/ai/viva/{{project.id}}', {method:'POST'});
+    const d = await r.json();
+    if(d.error) box.innerHTML = '<div class="alert alert-error">' + d.error + '</div>';
+    else {
+      let h = '<div style="font-weight:600;margin-bottom:10px;font-size:13px"><i class="fa-solid fa-clipboard-question text-accent"></i> Recommended Viva Questions</div><ul style="padding-left:20px;font-size:13px;color:var(--text2);line-height:1.6;margin:0">';
+      d.questions.forEach(q => h += '<li>' + q + '</li>');
+      h += '</ul>';
+      box.innerHTML = h;
+    }
+  } catch(e) {
+    box.innerHTML = '<div class="alert alert-error">Failed to generate viva questions.</div>';
+  }
+  btn.innerHTML = '<i class="fa-solid fa-clipboard-question"></i> Generate Viva Questions';
+  btn.disabled = false;
+}
+
+// Generate Documentation
+async function generateDocs() {
+  const btn = document.getElementById('docsBtn');
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+  btn.disabled = true;
+  
+  // We'll create a modal to show the markdown
+  let modal = document.getElementById('docsModal');
+  if(!modal) {
+    modal = document.createElement('div');
+    modal.id = 'docsModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    modal.innerHTML = `
+      <div style="background:var(--surface);width:100%;max-width:800px;max-height:90vh;border-radius:var(--radius);display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,0.3)">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:600;font-size:16px"><i class="fa-solid fa-file-alt text-accent" style="margin-right:8px"></i> Generated Documentation</div>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('docsModal').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div id="docsContent" style="padding:20px;overflow-y:auto;font-size:13.5px;color:var(--text);line-height:1.6;white-space:pre-wrap;font-family:monospace"></div>
+        <div style="padding:16px 20px;border-top:1px solid var(--border);text-align:right">
+          <button class="btn btn-primary btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('docsContent').textContent);alert('Copied to clipboard!')"><i class="fa-solid fa-copy"></i> Copy Markdown</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+  modal.style.display = 'flex';
+  const content = document.getElementById('docsContent');
+  content.innerHTML = '<div style="text-align:center;color:var(--text2);padding:40px"><i class="fa-solid fa-spinner fa-spin fa-2x"></i><div style="margin-top:10px">Generating AI Documentation...</div></div>';
+  
+  try {
+    const r = await fetch('/api/ai/generate_docs/{{project.id}}', {method:'POST'});
+    const d = await r.json();
+    if(d.error) content.innerHTML = '<div class="alert alert-error">' + d.error + '</div>';
+    else content.textContent = d.markdown;
+  } catch(e) {
+    content.innerHTML = '<div class="alert alert-error">Failed to generate docs.</div>';
+  }
+  
+  btn.innerHTML = '<i class="fa-solid fa-file-alt"></i> Generate Docs';
+  btn.disabled = false;
+}
+
+async function generateAIDelayPrediction() {
+  const box = document.getElementById('delayBox');
+  box.style.display = 'block';
+  box.innerHTML = '<div style="padding:10px;text-align:center"><i class="fa-solid fa-spinner fa-spin"></i> Analyzing...</div>';
+  try {
+    const r = await fetch('/api/ai/delay_prediction', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({project_id: {{project.id}}})
+    });
+    const d = await r.json();
+    if(d.error) box.innerHTML = '<div style="color:var(--red);padding:10px">'+d.error+'</div>';
+    else {
+      let color = d.status === 'On Track' ? 'var(--green)' : d.status === 'At Risk' ? 'var(--yellow)' : 'var(--red)';
+      box.innerHTML = `<div style="background:var(--surface2);padding:12px;border-left:3px solid ${color};border-radius:var(--radius-sm)">
+        <div style="font-weight:600;color:${color}">${d.status}</div>
+        <div style="font-size:12.5px;color:var(--text2);margin-top:4px">${d.suggestion}</div>
+      </div>`;
+    }
+  } catch(e) { box.innerHTML = '<div style="color:var(--red);padding:10px">Failed.</div>'; }
+}
+
+// .hidden helper
+document.head.insertAdjacentHTML('beforeend','<style>.hidden{display:none!important}</style>');
+</script>
+{% endblock %}

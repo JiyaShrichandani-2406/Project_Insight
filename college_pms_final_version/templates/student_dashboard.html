@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block topbar_title %}Dashboard{% endblock %}
+{% block content %}
+<div class="stats-grid">
+  <div class="stat-card purple">
+    <div class="stat-icon"><i class="fa-solid fa-folder"></i></div>
+    <div class="stat-value">{{ stats.total }}</div>
+    <div class="stat-label">Total Projects</div>
+  </div>
+  <div class="stat-card yellow">
+    <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
+    <div class="stat-value">{{ stats.pending }}</div>
+    <div class="stat-label">Pending Review</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div>
+    <div class="stat-value">{{ stats.approved }}</div>
+    <div class="stat-label">Approved</div>
+  </div>
+  <div class="stat-card red">
+    <div class="stat-icon"><i class="fa-solid fa-flag-checkered"></i></div>
+    <div class="stat-value">{{ stats.completed }}</div>
+    <div class="stat-label">Completed</div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">My Projects</span>
+      <a href="{{ url_for('new_project') }}" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-plus"></i> New
+      </a>
+    </div>
+    <div class="card-body" style="padding:0">
+      {% if projects %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Project</th><th>Type</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody>
+          {% for p in projects %}
+          <tr>
+            <td>
+              <div style="font-weight:600;font-size:13.5px">{{ p.title[:40] }}{% if p.title|length > 40 %}...{% endif %}</div>
+              <div class="text-xs">{{ p.domain or 'No domain' }}</div>
+              {% if p.faculty %}
+              <div class="text-xs" style="color:var(--green);margin-top:4px;font-weight:600"><i class="fa-solid fa-chalkboard-teacher"></i> Guide: {{ p.faculty.name }}</div>
+              {% endif %}
+            </td>
+            <td><span class="badge badge-{{ p.project_type }}">{{ p.project_type }}</span></td>
+            <td><span class="badge badge-{{ p.status }}"><span class="badge-dot"></span>{{ p.status }}</span></td>
+            <td><a href="{{ url_for('project_detail', project_id=p.id) }}" class="btn btn-ghost btn-xs">View</a></td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div style="padding:40px;text-align:center">
+        <div style="font-size:32px;margin-bottom:12px">📁</div>
+        <p style="color:var(--text2);margin-bottom:16px">No projects yet</p>
+        <a href="{{ url_for('new_project') }}" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus"></i> Submit Your First Idea</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div>
+    <div class="card mb-3">
+      <div class="card-header">
+        <span class="card-title">Recent Notifications</span>
+      </div>
+      <div class="card-body" style="padding:0">
+        {% if notifications %}
+        {% for n in notifications %}
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border)">
+          <div style="font-size:13px">{{ n.message }}</div>
+          <div class="text-xs" style="margin-top:3px">{{ n.created_at.strftime('%b %d, %H:%M') }}</div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="padding:24px;text-align:center;color:var(--text2);font-size:13px">No new notifications</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">Quick Actions</span></div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
+        <a href="{{ url_for('new_project') }}" class="btn btn-ghost" style="justify-content:flex-start">
+          <i class="fa-solid fa-lightbulb" style="color:var(--yellow)"></i> Submit New Project Idea
+        </a>
+        <a href="{{ url_for('projects') }}" class="btn btn-ghost" style="justify-content:flex-start">
+          <i class="fa-solid fa-list" style="color:var(--accent2)"></i> View All Projects
+        </a>
+        <a href="{{ url_for('profile') }}" class="btn btn-ghost" style="justify-content:flex-start">
+          <i class="fa-solid fa-user" style="color:var(--green)"></i> Edit Profile
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

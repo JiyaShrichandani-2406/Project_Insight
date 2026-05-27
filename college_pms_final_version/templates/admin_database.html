@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}Evaluation Database - ProjectInsight{% endblock %}
+{% block topbar_title %}Evaluation Database{% endblock %}
+
+{% block extra_css %}
+<style>
+  .db-table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius-sm); overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  .db-table th { background: var(--surface2); padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: var(--text); border-bottom: 2px solid var(--border); white-space: nowrap; }
+  .db-table td { padding: 12px; font-size: 13.5px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .db-table tbody tr:hover { background: var(--surface2); }
+  .table-responsive { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-top: 16px; }
+  .input-sm { width: 60px; padding: 4px 6px; font-size: 13px; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); }
+  .input-sm:focus { border-color: var(--accent); outline: none; }
+  .textarea-sm { width: 150px; padding: 4px 6px; font-size: 13px; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); min-height: 40px; }
+  
+  .filter-bar { display: flex; gap: 16px; margin-bottom: 20px; align-items: center; background: var(--surface); padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+  .search-box { flex: 1; position: relative; }
+  .search-box i { position: absolute; left: 12px; top: 10px; color: var(--text3); }
+  .search-box input { width: 100%; padding: 8px 12px 8px 36px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text); }
+  .search-box input:focus { border-color: var(--accent); outline: none; }
+  
+  .team-details-pop { display: none; margin-top: 6px; font-size: 12px; color: var(--text2); background: var(--surface2); padding: 8px; border-radius: 4px; border: 1px solid var(--border); }
+  .show-team-btn { font-size: 12px; cursor: pointer; color: var(--accent); user-select: none; }
+  .show-team-btn:hover { text-decoration: underline; }
+  
+  .db-btn { padding: 6px 12px; border-radius: 4px; font-size: 13px; cursor: pointer; border: none; font-weight: 500; }
+  .db-btn-edit { background: var(--surface3); color: var(--text); }
+  .db-btn-edit:hover { background: var(--accent); color: white; }
+  .db-btn-save { background: var(--green); color: white; display: none; }
+  .db-btn-save:hover { background: #16a34a; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+  <div class="search-box">
+    <i class="fa-solid fa-search"></i>
+    <input type="text" id="searchInput" placeholder="Search by Project Title, Team Name, or Assigned Guide..." onkeyup="filterTable()">
+  </div>
+  <div style="font-size: 13px; color: var(--text2);">
+    Showing <strong id="rowCount" style="color:var(--text)">{{ projects|length }}</strong> projects
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="db-table" id="dbTable">
+    <thead>
+      <tr>
+        <th>Grp No.</th>
+        <th>Project Title & Team Name</th>
+        <th>Assigned Guide</th>
+        <th title="Presentation Marks">Pres. (10)</th>
+        <th title="Frontend Marks">Front. (10)</th>
+        <th title="Backend Marks">Back. (10)</th>
+        <th title="Report Marks">Rep. (10)</th>
+        <th title="Overall Performance Marks">Overall (10)</th>
+        <th>Total (50)</th>
+        <th>Remarks</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in projects %}
+      {% set eval = p.evaluations[0] if p.evaluations else p.dummy_eval %}
+      <tr>
+        <td><strong>G-{{ p.id }}</strong></td>
+        <td>
+          <div style="font-weight: 600; margin-bottom: 2px;">{{ p.title }}</div>
+          <div style="font-size: 12px; color: var(--text2); margin-bottom: 4px;">{{ p.team_data_parsed.get('project_name', 'No Team Name') }}</div>
+          
+          <div class="show-team-btn" onclick="toggleTeam(this)">View Team Details <i class="fa-solid fa-chevron-down text-xs"></i></div>
+          <div class="team-details-pop">
+            <strong>Leader:</strong> {{ p.team_data_parsed.get('leader_name', 'N/A') }} ({{ p.team_data_parsed.get('leader_roll', 'N/A') }})<br>
+            {% for m in p.team_data_parsed.get('members', []) %}
+            • {{ m.name }} ({{ m.roll }})<br>
+            {% endfor %}
+          </div>
+        </td>
+        <td>
+          {% if p.faculty %}
+            <div style="display:flex;align-items:center;gap:6px">
+              <img src="https://ui-avatars.com/api/?name={{p.faculty.name|urlencode}}&background=random" style="width:24px;height:24px;border-radius:50%">
+              {{ p.faculty.name }}
+            </div>
+          {% else %}
+            <span style="color:var(--yellow)"><i class="fa-solid fa-clock"></i> Pending Assignment</span>
+          {% endif %}
+        </td>
+        <form method="POST" action="{{ url_for('admin_update_evaluation', project_id=p.id) }}" id="form_{{p.id}}">
+        <td>
+          <span class="val-display">{{ eval.presentation_marks if eval.presentation_marks != '' else '-' }}</span>
+          <input type="number" name="presentation_marks" class="input-sm val-edit" style="display:none" min="0" max="10" step="0.5" value="{{ eval.presentation_marks }}" oninput="calcRow({{p.id}})">
+        </td>
+        <td>
+          <span class="val-display">{{ eval.frontend_marks if eval.frontend_marks != '' else '-' }}</span>
+          <input type="number" name="frontend_marks" class="input-sm val-edit" style="display:none" min="0" max="10" step="0.5" value="{{ eval.frontend_marks }}" oninput="calcRow({{p.id}})">
+        </td>
+        <td>
+          <span class="val-display">{{ eval.backend_marks if eval.backend_marks != '' else '-' }}</span>
+          <input type="number" name="backend_marks" class="input-sm val-edit" style="display:none" min="0" max="10" step="0.5" value="{{ eval.backend_marks }}" oninput="calcRow({{p.id}})">
+        </td>
+        <td>
+          <span class="val-display">{{ eval.report_marks if eval.report_marks != '' else '-' }}</span>
+          <input type="number" name="report_marks" class="input-sm val-edit" style="display:none" min="0" max="10" step="0.5" value="{{ eval.report_marks }}" oninput="calcRow({{p.id}})">
+        </td>
+        <td>
+          <span class="val-display">{{ eval.overall_marks if eval.overall_marks != '' else '-' }}</span>
+          <input type="number" name="overall_marks" class="input-sm val-edit" style="display:none" min="0" max="10" step="0.5" value="{{ eval.overall_marks }}" oninput="calcRow({{p.id}})">
+        </td>
+        <td>
+          <strong class="val-display" style="color:var(--accent2)">{{ eval.total_marks if eval.total_marks != '' else '-' }}</strong>
+          <strong class="val-edit" id="row_tot_{{p.id}}" style="display:none; color:var(--accent2)">{{ eval.total_marks if eval.total_marks != '' else '0.0' }}</strong>
+        </td>
+        <td>
+          <span class="val-display" style="font-size:12px; color:var(--text2)">{{ (eval.remarks[:30] + '...') if eval.remarks and eval.remarks|length > 30 else (eval.remarks or '-') }}</span>
+          <textarea name="remarks" class="textarea-sm val-edit" style="display:none">{{ eval.remarks }}</textarea>
+        </td>
+        <td>
+          <button type="button" class="db-btn db-btn-edit val-display" onclick="toggleEdit(this, {{p.id}})"><i class="fa-solid fa-pen"></i></button>
+          <button type="submit" class="db-btn db-btn-save val-edit"><i class="fa-solid fa-check"></i></button>
+        </td>
+        </form>
+      </tr>
+      {% endfor %}
+      
+      {% if not projects %}
+      <tr><td colspan="11" style="text-align:center; padding: 30px; color: var(--text2)">No approved projects found.</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function filterTable() {
+    let input = document.getElementById("searchInput").value.toUpperCase();
+    let table = document.getElementById("dbTable");
+    let tr = table.getElementsByTagName("tr");
+    let count = 0;
+    
+    for (let i = 1; i < tr.length; i++) {
+      let tds = tr[i].getElementsByTagName("td");
+      if (tds.length > 0) {
+        let textContent = tds[1].textContent + " " + tds[2].textContent;
+        if (textContent.toUpperCase().indexOf(input) > -1) {
+          tr[i].style.display = "";
+          count++;
+        } else {
+          tr[i].style.display = "none";
+        }
+      }
+    }
+    document.getElementById("rowCount").textContent = count;
+  }
+  
+  function toggleTeam(btn) {
+    let pop = btn.nextElementSibling;
+    if (pop.style.display === "block") {
+      pop.style.display = "none";
+      btn.innerHTML = 'View Team Details <i class="fa-solid fa-chevron-down text-xs"></i>';
+    } else {
+      pop.style.display = "block";
+      btn.innerHTML = 'Hide Team Details <i class="fa-solid fa-chevron-up text-xs"></i>';
+    }
+  }
+
+  function toggleEdit(btn, pid) {
+    let tr = btn.closest('tr');
+    tr.querySelectorAll('.val-display').forEach(el => el.style.display = 'none');
+    tr.querySelectorAll('.val-edit').forEach(el => {
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.style.display = 'block';
+      else if (el.tagName === 'BUTTON' || el.tagName === 'STRONG') el.style.display = 'inline-block';
+    });
+    // Set default zero if empty
+    tr.querySelectorAll('input[type="number"]').forEach(inp => {
+      if(inp.value === '') inp.value = 0;
+    });
+    calcRow(pid);
+  }
+
+  function calcRow(pid) {
+    let form = document.getElementById('form_' + pid);
+    let p = parseFloat(form.querySelector('input[name="presentation_marks"]').value) || 0;
+    let f = parseFloat(form.querySelector('input[name="frontend_marks"]').value) || 0;
+    let b = parseFloat(form.querySelector('input[name="backend_marks"]').value) || 0;
+    let r = parseFloat(form.querySelector('input[name="report_marks"]').value) || 0;
+    let o = parseFloat(form.querySelector('input[name="overall_marks"]').value) || 0;
+    
+    let total = (p + f + b + r + o).toFixed(1);
+    document.getElementById('row_tot_' + pid).textContent = total;
+  }
+</script>
+{% endblock %}

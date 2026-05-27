@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Submit Project Idea{% endblock %}
+{% block topbar_title %}Submit Project Idea{% endblock %}
+{% block content %}
+<div style="max-width:680px;margin:0 auto">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">💡 Submit New Project Idea</span>
+    </div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('new_project') }}">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Project Type</label>
+            <select name="project_type" required>
+              <option value="minor">Minor Project</option>
+              <option value="major">Major Project</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Domain / Category</label>
+            <select name="domain">
+              <option value="">Select domain</option>
+              <option>Web Development</option>
+              <option>Mobile App</option>
+              <option>Machine Learning / AI</option>
+              <option>Data Science</option>
+              <option>IoT / Embedded</option>
+              <option>Cybersecurity</option>
+              <option>Blockchain</option>
+              <option>Cloud Computing</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Project Title <span style="color:var(--red)">*</span></label>
+          <input type="text" name="title" placeholder="Give your project a descriptive title" required maxlength="200">
+          <div class="text-xs" style="margin-top:4px">Plagiarism check will be performed automatically</div>
+        </div>
+        <div class="form-group">
+          <label>Project Description <span style="color:var(--red)">*</span></label>
+          <textarea name="description" rows="6" placeholder="Describe your project idea in detail — what it does, what problem it solves, technologies you plan to use..." required minlength="50"></textarea>
+          <div id="descCount" class="text-xs" style="margin-top:4px;text-align:right">0 characters</div>
+        </div>
+        <div id="simBox" style="display:none;margin-bottom:16px;"></div>
+        <div style="display:flex;gap:12px;justify-content:flex-end">
+          <button type="button" class="btn btn-ghost" onclick="evaluateIdea()" id="evalBtn">
+            <i class="fa-solid fa-lightbulb text-accent"></i> AI Evaluate Idea
+          </button>
+          <button type="button" class="btn btn-ghost" onclick="checkSimilarity()" id="simBtn">
+            <i class="fa-solid fa-robot text-accent"></i> AI Similarity Check
+          </button>
+          <a href="{{ url_for('dashboard') }}" class="btn btn-ghost">Cancel</a>
+          <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-paper-plane"></i> Submit for Review
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px">
+    <div class="card-body">
+      <div style="font-family:var(--font-display);font-size:14px;font-weight:600;margin-bottom:12px">📋 Submission Guidelines</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        {% for item in [
+          ('lightbulb', 'Be original — duplicate titles or descriptions will be flagged'),
+          ('clock', 'Faculty will review your idea within 3-5 business days'),
+          ('comment', 'You will be notified with approval status and feedback'),
+          ('calendar', 'Milestones will be auto-generated upon approval')
+        ] %}
+        <div style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text2)">
+          <i class="fa-solid fa-{{ item[0] }}" style="color:var(--accent2);width:16px"></i>
+          {{ item[1] }}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const desc = document.querySelector('textarea[name="description"]');
+const counter = document.getElementById('descCount');
+desc.addEventListener('input', () => counter.textContent = desc.value.length + ' characters');
+
+async function checkSimilarity() {
+  const title = document.querySelector('input[name="title"]').value;
+  const description = desc.value;
+  const box = document.getElementById('simBox');
+  const btn = document.getElementById('simBtn');
+  
+  if(!title || !description) {
+    alert("Please fill in the title and description first.");
+    return;
+  }
+  
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Checking...';
+  btn.disabled = true;
+  box.style.display = 'block';
+  box.innerHTML = '<div style="padding:10px;color:var(--text2)"><i class="fa-solid fa-spinner fa-spin"></i> Running AI semantic similarity check...</div>';
+  
+  try {
+    const r = await fetch('/api/ai/similarity', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({title, description})
+    });
+    const d = await r.json();
+    if(d.error) {
+      box.innerHTML = '<div class="alert alert-error"><i class="fa-solid fa-triangle-exclamation"></i> ' + d.error + '</div>';
+    } else if(d.is_similar) {
+      box.innerHTML = '<div class="alert alert-error"><i class="fa-solid fa-circle-xmark"></i> <strong>Similarity Detected:</strong> ' + d.reason + '</div>';
+    } else {
+      box.innerHTML = '<div class="alert alert-success"><i class="fa-solid fa-circle-check"></i> <strong>Looks Good!</strong> No significant similarity found with existing projects.</div>';
+    }
+  } catch(e) {
+    box.innerHTML = '<div class="alert alert-error"><i class="fa-solid fa-triangle-exclamation"></i> Failed to run check.</div>';
+  }
+  btn.innerHTML = '<i class="fa-solid fa-robot text-accent"></i> AI Similarity Check';
+  btn.disabled = false;
+}
+
+async function evaluateIdea() {
+  const title = document.querySelector('input[name="title"]').value;
+  const description = desc.value;
+  const box = document.getElementById('simBox');
+  const btn = document.getElementById('evalBtn');
+  
+  if(!title || !description) {
+    alert("Please fill in the title and description first.");
+    return;
+  }
+  
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Evaluating...';
+  btn.disabled = true;
+  box.style.display = 'block';
+  box.innerHTML = '<div style="padding:10px;color:var(--text2)"><i class="fa-solid fa-spinner fa-spin"></i> Running AI evaluation...</div>';
+  
+  try {
+    const r = await fetch('/api/ai/evaluate_idea', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({title, description})
+    });
+    const d = await r.json();
+    if(d.error) {
+      box.innerHTML = '<div class="alert alert-error"><i class="fa-solid fa-triangle-exclamation"></i> ' + d.error + '</div>';
+    } else {
+      const isGood = d.status === 'Good Idea';
+      box.innerHTML = `<div class="alert alert-${isGood ? 'success' : 'warning'}">
+        <div style="font-weight:600;margin-bottom:6px"><i class="fa-solid fa-${isGood ? 'check' : 'triangle-exclamation'}"></i> AI Evaluation: ${d.status}</div>
+        <div>${d.feedback}</div>
+      </div>`;
+    }
+  } catch(e) {
+    box.innerHTML = '<div class="alert alert-error"><i class="fa-solid fa-triangle-exclamation"></i> Failed to run evaluation.</div>';
+  }
+  btn.innerHTML = '<i class="fa-solid fa-lightbulb text-accent"></i> AI Evaluate Idea';
+  btn.disabled = false;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Students Directory{% endblock %}
+{% block topbar_title %}Students Directory{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+  <div>
+    <h2 style="font-family:var(--font-display);font-size:18px;font-weight:600">Students Directory</h2>
+    <p style="font-size:13px;color:var(--text2);margin-top:2px">{{ student_data|length }} registered students</p>
+  </div>
+
+</div>
+
+{% if student_data %}
+<div id="studentsGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
+  {% for sd in student_data %}
+  <div class="card student-card" data-name="{{ sd.user.name.lower() }}" data-dept="{{ (sd.user.department or '')|lower }}" style="transition:all 0.2s">
+    <div class="card-body">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+        <div style="width:48px;height:48px;border-radius:50%;background:{{ sd.user.avatar_color }};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;flex-shrink:0">
+          {{ sd.user.name[0].upper() }}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-family:var(--font-display);font-size:15px;font-weight:600">{{ sd.user.name }}</div>
+          <div style="font-size:12px;color:var(--text2)">{{ sd.user.email }}</div>
+          {% if sd.user.department %}<div class="tag" style="margin-top:4px;display:inline-block">{{ sd.user.department }}</div>{% endif %}
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px">
+        <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:10px;text-align:center">
+          <div style="font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--accent2)">{{ sd.total }}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:1px">Projects</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:10px;text-align:center">
+          <div style="font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--green)">{{ sd.completed }}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:1px">Completed</div>
+        </div>
+      </div>
+
+      {% if sd.projects %}
+      <div style="border-top:1px solid var(--border);padding-top:12px">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">Projects</div>
+        {% for p in sd.projects[:3] %}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0">
+          <a href="{{ url_for('project_detail', project_id=p.id) }}" style="font-size:12.5px;color:var(--text);text-decoration:none;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-right:8px">
+            {{ p.title }}
+          </a>
+          {% if p.evaluations %}
+          <span class="badge" style="background:var(--accent-dim);color:var(--accent2);font-size:10px;margin-right:6px">{{ "%.0f"|format(p.evaluations[0].total_marks) }}/100</span>
+          {% endif %}
+          <span class="badge badge-{{ p.status }}" style="flex-shrink:0;font-size:10px">{{ p.status }}</span>
+        </div>
+        {% endfor %}
+        {% if sd.projects|length > 3 %}
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">+{{ sd.projects|length - 3 }} more</div>
+        {% endif %}
+      </div>
+      {% else %}
+      <div style="border-top:1px solid var(--border);padding-top:12px;font-size:12px;color:var(--text3)">No projects submitted yet</div>
+      {% endif %}
+
+      <div style="font-size:11px;color:var(--text3);margin-top:10px">
+        <i class="fa-solid fa-calendar" style="margin-right:4px"></i>Joined {{ sd.user.created_at.strftime('%b %Y') }}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card"><div class="card-body" style="text-align:center;padding:48px">
+  <div style="font-size:40px;margin-bottom:12px">👥</div>
+  <p style="color:var(--text2)">No students registered yet.</p>
+</div></div>
+{% endif %}
+
+<script>
+function filterStudents(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('.student-card').forEach(c => {
+    const match = c.dataset.name.includes(q) || c.dataset.dept.includes(q);
+    c.style.display = match ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

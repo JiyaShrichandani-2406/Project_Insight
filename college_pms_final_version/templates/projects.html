@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}All Projects{% endblock %}
+{% block topbar_title %}Projects{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+  <div>
+    <h2 style="font-family:var(--font-display);font-size:18px;font-weight:600">
+      {% if current_user.role == 'faculty' %}All Projects{% else %}My Projects{% endif %}
+    </h2>
+    <p style="font-size:13px;color:var(--text2);margin-top:2px">{{ projects|length }} total</p>
+  </div>
+  {% if current_user.role == 'student' %}
+  <a href="{{ url_for('new_project') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Submit New Idea</a>
+  {% endif %}
+</div>
+
+<!-- Filters -->
+<div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+  {% for f in ['all','pending','approved','rejected','completed'] %}
+  <button class="btn btn-ghost btn-sm filter-btn {% if f == 'all' %}active{% endif %}" onclick="filterProjects('{{ f }}', this)">
+    {{ f.capitalize() }}
+  </button>
+  {% endfor %}
+</div>
+
+{% if projects %}
+<div id="projectsGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px">
+  {% for p in projects %}
+  <div class="project-card card" data-status="{{ p.status }}" style="cursor:pointer;transition:all 0.2s" onclick="location.href='{{ url_for('project_detail', project_id=p.id) }}'">
+    <div class="card-body">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+        <div style="display:flex;gap:6px">
+          <span class="badge badge-{{ p.status }}"><span class="badge-dot"></span>{{ p.status }}</span>
+          <span class="badge badge-{{ p.project_type }}">{{ p.project_type }}</span>
+        </div>
+        <span class="text-xs">{{ p.created_at.strftime('%b %d') }}</span>
+      </div>
+      <h3 style="font-family:var(--font-display);font-size:15px;font-weight:600;margin-bottom:6px;line-height:1.3">{{ p.title }}</h3>
+      <p style="color:var(--text2);font-size:13px;line-height:1.5;margin-bottom:12px">{{ p.description[:100] }}{% if p.description|length > 100 %}...{% endif %}</p>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:26px;height:26px;border-radius:50%;background:{{ p.student.avatar_color }};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">{{ p.student.name[0] }}</div>
+          <span style="font-size:12px;color:var(--text2)">{{ p.student.name }}</span>
+        </div>
+        {% if p.domain %}<span class="tag">{{ p.domain }}</span>{% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card"><div class="card-body" style="text-align:center;padding:48px">
+  <div style="font-size:40px;margin-bottom:12px">📁</div>
+  <p style="color:var(--text2)">No projects found</p>
+  {% if current_user.role == 'student' %}
+  <a href="{{ url_for('new_project') }}" class="btn btn-primary" style="margin-top:16px"><i class="fa-solid fa-plus"></i> Submit Your First Idea</a>
+  {% endif %}
+</div></div>
+{% endif %}
+
+<script>
+function filterProjects(status, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.project-card').forEach(c => {
+    c.style.display = (status === 'all' || c.dataset.status === status) ? '' : 'none';
+  });
+}
+document.querySelectorAll('.project-card').forEach(c => {
+  c.addEventListener('mouseenter', () => { c.style.transform = 'translateY(-3px)'; c.style.borderColor = 'var(--border2)'; });
+  c.addEventListener('mouseleave', () => { c.style.transform = ''; c.style.borderColor = ''; });
+});
+</script>
+{% endblock %}

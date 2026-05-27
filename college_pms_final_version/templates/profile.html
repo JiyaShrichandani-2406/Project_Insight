@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block title %}Profile{% endblock %}
+{% block topbar_title %}My Profile{% endblock %}
+{% block extra_css %}
+<style>
+.profile-header{background:linear-gradient(135deg,var(--surface2),var(--surface));border:1px solid var(--border);border-radius:var(--radius);padding:28px;margin-bottom:20px;display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.avatar-large{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:700;color:#fff;flex-shrink:0;box-shadow:0 0 0 4px rgba(255,255,255,0.06)}
+.profile-meta{flex:1;min-width:0}
+.profile-name{font-family:var(--font-display);font-size:22px;font-weight:700;margin-bottom:4px}
+.profile-stats{display:flex;gap:20px;margin-top:14px;flex-wrap:wrap}
+.pstat{text-align:center}
+.pstat-val{font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--accent2);display:block}
+.pstat-label{font-size:11px;color:var(--text3)}
+.tab-nav{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:20px}
+.tab-btn{padding:9px 16px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--font-body)}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--accent2);border-bottom-color:var(--accent)}
+.panel{display:none}.panel.active{display:block}
+</style>
+{% endblock %}
+{% block content %}
+
+<!-- Profile Header -->
+<div class="profile-header">
+  <div class="avatar-large" style="background:{{ current_user.avatar_color }}">{{ current_user.name[0].upper() }}</div>
+  <div class="profile-meta">
+    <div class="profile-name">{{ current_user.name }}</div>
+    <div style="color:var(--text2);font-size:13px">{{ current_user.email }}</div>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <span class="badge badge-{% if current_user.role=='faculty' %}approved{% else %}minor{% endif %}">
+        <i class="fa-solid fa-{% if current_user.role=='faculty' %}chalkboard-teacher{% else %}user-graduate{% endif %}"></i>
+        {{ current_user.role.capitalize() }}
+      </span>
+      {% if current_user.department %}<span class="tag">{{ current_user.department }}</span>{% endif %}
+      {% if current_user.college_id %}<span class="tag"><i class="fa-solid fa-id-badge" style="margin-right:4px"></i>{{ current_user.college_id }}</span>{% endif %}
+    </div>
+    <div class="profile-stats">
+      {% if current_user.role != 'admin' %}
+      <div class="pstat"><span class="pstat-val">{{ projects|length }}</span><span class="pstat-label">Projects</span></div>
+      <div class="pstat"><span class="pstat-val">{{ projects|selectattr('status','eq','completed')|list|length }}</span><span class="pstat-label">Completed</span></div>
+      {% endif %}
+      {% if current_user.role=='student' %}
+      <div class="pstat">
+        {% set scores = [] %}{% for p in projects %}{% if p.evaluations %}{% set _ = scores.append(p.evaluations[0].total_marks) %}{% endif %}{% endfor %}
+        <span class="pstat-val">{% if scores %}{{ "%.1f"|format(scores|sum / scores|length) }}{% else %}—{% endif %}</span>
+        <span class="pstat-label">Avg Score</span>
+      </div>
+      {% endif %}
+      <div class="pstat"><span class="pstat-val">{{ current_user.created_at.strftime('%b %Y') }}</span><span class="pstat-label">Joined</span></div>
+    </div>
+  </div>
+  <a href="{{ url_for('logout') }}" class="btn btn-danger btn-sm" style="align-self:flex-start">
+    <i class="fa-solid fa-right-from-bracket"></i> Sign Out
+  </a>
+</div>
+
+<!-- Tabs -->
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="showPanel('info',this)"><i class="fa-solid fa-user" style="margin-right:6px"></i>Info</button>
+  {% if current_user.role != 'admin' %}
+  <button class="tab-btn" onclick="showPanel('projects',this)"><i class="fa-solid fa-folder" style="margin-right:6px"></i>Projects ({{ projects|length }})</button>
+  {% endif %}
+  <button class="tab-btn" onclick="showPanel('security',this)"><i class="fa-solid fa-lock" style="margin-right:6px"></i>Security</button>
+</div>
+
+<!-- INFO PANEL -->
+<div class="panel active" id="panel-info">
+  <div class="card">
+    <div class="card-header"><span class="card-title">✏️ Edit Profile</span></div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('update_profile') }}">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" name="name" value="{{ current_user.name }}" required>
+          </div>
+          <div class="form-group">
+            <label>Department</label>
+            <select name="department">
+              <option value="">Select department</option>
+              {% for dept in ['Computer Science','Information Technology','Electronics & Comm.','Mechanical Eng.','Civil Engineering','Electrical Eng.','Other'] %}
+              <option {% if current_user.department==dept %}selected{% endif %}>{{ dept }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" value="{{ current_user.email }}" disabled>
+          <div class="form-hint">Email cannot be changed after registration</div>
+        </div>
+        {% if current_user.role=='faculty' %}
+        <div class="form-group">
+          <label>College ID</label>
+          <input type="text" value="{{ current_user.college_id or '' }}" disabled>
+        </div>
+        {% endif %}
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-save"></i> Save Changes</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- PROJECTS PANEL -->
+{% if current_user.role != 'admin' %}
+<div class="panel" id="panel-projects">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">{{ '📚 My Projects' if current_user.role=='student' else '🎓 Guided Projects' }}</span>
+      {% if current_user.role=='student' %}
+      <a href="{{ url_for('new_project') }}" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus"></i> New</a>
+      {% endif %}
+    </div>
+    <div class="card-body" style="padding:0">
+      {% if projects %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Project</th><th>Type</th><th>Status</th>
+            {% if current_user.role=='faculty' %}<th>Student</th>{% endif %}
+            <th>Score</th><th>Date</th><th></th></tr>
+          </thead>
+          <tbody>
+          {% for p in projects %}
+          {% set ev = p.evaluations[0] if p.evaluations else None %}
+          <tr>
+            <td>
+              <div style="font-weight:600">{{ p.title[:40] }}{% if p.title|length>40 %}...{% endif %}</div>
+              <div class="text-xs">{{ p.domain or '—' }}</div>
+            </td>
+            <td><span class="badge badge-{{p.project_type}}">{{p.project_type}}</span></td>
+            <td><span class="badge badge-{{p.status}}"><span class="badge-dot"></span>{{p.status}}</span></td>
+            {% if current_user.role=='faculty' %}<td style="font-size:12px">{{ p.student.name }}</td>{% endif %}
+            <td>
+              {% if ev %}
+              <span style="font-weight:700;color:{% if ev.total_marks>=7.5 %}var(--green){% elif ev.total_marks>=5 %}var(--yellow){% else %}var(--red){% endif %}">
+                {{ "%.1f"|format(ev.total_marks) }}
+              </span>
+              {% else %}<span style="color:var(--text3)">—</span>{% endif %}
+            </td>
+            <td class="text-xs">{{ p.created_at.strftime('%b %d, %Y') }}</td>
+            <td>
+              <div style="display:flex;gap:6px">
+                <a href="{{ url_for('project_detail', project_id=p.id) }}" class="btn btn-ghost btn-xs">View</a>
+                {% if current_user.role=='student' and p.status in ('pending','rejected') %}
+                <a href="{{ url_for('edit_project', project_id=p.id) }}" class="btn btn-ghost btn-xs">Edit</a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div style="padding:40px;text-align:center;color:var(--text2)">
+        <span style="font-size:32px;display:block;margin-bottom:10px">📁</span>
+        No projects yet.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- SECURITY PANEL -->
+<div class="panel" id="panel-security">
+  <div class="card">
+    <div class="card-header"><span class="card-title">🔒 Change Password</span></div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('change_password') }}" style="max-width:420px">
+        <div class="form-group">
+          <label>Current Password</label>
+          <input type="password" name="current_password" required placeholder="Enter your current password">
+        </div>
+        <div class="form-group">
+          <label>New Password</label>
+          <input type="password" name="new_password" required placeholder="At least 8 characters" minlength="8" id="newPw">
+        </div>
+        <div class="form-group">
+          <label>Confirm New Password</label>
+          <input type="password" name="confirm_password" required placeholder="Repeat new password" id="confirmPw">
+          <div class="form-hint" id="pwMatch" style="display:none"></div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm" id="changePwBtn">
+          <i class="fa-solid fa-key"></i> Update Password
+        </button>
+      </form>
+      <div class="divider"></div>
+      <div style="font-size:13px;color:var(--text2)">
+        <div style="font-weight:600;color:var(--text);margin-bottom:8px">Password Requirements</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          {% for req in ['At least 8 characters','Mix of letters and numbers recommended','Avoid using your name or email'] %}
+          <div style="display:flex;align-items:center;gap:8px">
+            <i class="fa-solid fa-circle-check" style="color:var(--green);font-size:11px"></i>
+            <span>{{ req }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;border-color:rgba(248,113,113,0.2)">
+    <div class="card-header"><span class="card-title" style="color:var(--red)">⚠️ Danger Zone</span></div>
+    <div class="card-body">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-weight:600;font-size:13.5px">Sign out of all sessions</div>
+          <div class="text-xs" style="margin-top:2px">This will log you out from all devices</div>
+        </div>
+        <a href="{{ url_for('logout') }}" class="btn btn-danger btn-sm"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showPanel(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+// Password match validator
+const newPw = document.getElementById('newPw');
+const confirmPw = document.getElementById('confirmPw');
+const pwMatch = document.getElementById('pwMatch');
+const changePwBtn = document.getElementById('changePwBtn');
+function checkPwMatch() {
+  if (!confirmPw.value) { pwMatch.style.display='none'; return; }
+  const match = newPw.value === confirmPw.value;
+  pwMatch.style.display = 'block';
+  pwMatch.style.color = match ? 'var(--green)' : 'var(--red)';
+  pwMatch.textContent = match ? '✓ Passwords match' : '✗ Passwords do not match';
+  changePwBtn.disabled = !match;
+}
+newPw?.addEventListener('input', checkPwMatch);
+confirmPw?.addEventListener('input', checkPwMatch);
+
+// Show security tab if redirected with #security
+if (window.location.hash === '#security') {
+  document.querySelector('[onclick*="security"]')?.click();
+}
+</script>
+{% endblock %}

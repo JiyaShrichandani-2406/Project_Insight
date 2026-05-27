@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block title %}Analytics{% endblock %}
+{% block topbar_title %}Analytics & Reports{% endblock %}
+{% block extra_css %}
+<style>
+.chart-wrap{position:relative;height:200px}
+.donut-chart{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:13px}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.top-project{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px}
+.rank-badge{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0}
+</style>
+{% endblock %}
+{% block content %}
+<!-- Summary Stats -->
+<div class="stats-grid" style="margin-bottom:28px">
+  <div class="stat-card purple">
+    <div class="stat-icon"><i class="fa-solid fa-folder"></i></div>
+    <div class="stat-value">{{ all_projects|length }}</div>
+    <div class="stat-label">Total Projects</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-icon"><i class="fa-solid fa-star"></i></div>
+    <div class="stat-value">{{ all_evals|length }}</div>
+    <div class="stat-label">Evaluated</div>
+  </div>
+  <div class="stat-card yellow">
+    <div class="stat-icon"><i class="fa-solid fa-chart-line"></i></div>
+    <div class="stat-value">{{ "%.1f"|format(avg_marks.total) if avg_marks else '—' }}</div>
+    <div class="stat-label">Avg Score /10</div>
+  </div>
+  <div class="stat-card red">
+    <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
+    <div class="stat-value">{{ status_counts.pending }}</div>
+    <div class="stat-label">Pending Review</div>
+  </div>
+</div>
+
+<div class="grid-2" style="margin-bottom:24px">
+  <!-- Status Distribution -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">📊 Status Distribution</span></div>
+    <div class="card-body">
+      <canvas id="statusChart" height="180"></canvas>
+      <div class="donut-chart" style="margin-top:16px">
+        {% set status_colors = {'pending':'#fbbf24','approved':'#22d3a5','rejected':'#f87171','completed':'#60a5fa'} %}
+        {% for status, count in status_counts.items() %}
+        {% if count > 0 %}
+        <div class="legend-item">
+          <div class="legend-dot" style="background:{{ status_colors[status] }}"></div>
+          <span>{{ status.capitalize() }} ({{ count }})</span>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Mark Breakdown -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">🎯 Average Marks Breakdown</span></div>
+    <div class="card-body">
+      {% if avg_marks %}
+      {% for category, value, color in [
+        ('Presentation', avg_marks.presentation, 'var(--accent2)'),
+        ('Frontend', avg_marks.frontend, 'var(--green)'),
+        ('Backend', avg_marks.backend, 'var(--yellow)'),
+        ('Overall', avg_marks.overall, 'var(--blue)')
+      ] %}
+      <div style="margin-bottom:16px">
+        <div class="flex-between" style="margin-bottom:5px">
+          <span style="font-size:13px;font-weight:500">{{ category }}</span>
+          <span style="font-size:13px;font-weight:700;color:{{ color }}">{{ "%.1f"|format(value) }}</span>
+        </div>
+        <div class="progress">
+          <div class="progress-bar" style="width:{{ (value*10)|int }}%;background:{{ color }}"></div>
+        </div>
+      </div>
+      {% endfor %}
+      <div style="margin-top:8px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;font-weight:600">Overall Average</span>
+        <span style="font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--accent2)">{{ "%.1f"|format(avg_marks.total) }}/10</span>
+      </div>
+      {% else %}
+      <p style="color:var(--text2);text-align:center;padding:24px">No evaluations yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="grid-2" style="margin-bottom:24px">
+  <!-- Domain Breakdown -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">🏷️ Projects by Domain</span></div>
+    <div class="card-body" style="padding:0">
+      {% if domain_counts %}
+      {% set max_count = domain_counts.values()|max %}
+      {% for domain, count in (domain_counts.items()|sort(attribute='1', reverse=True)) %}
+      <div style="padding:12px 18px;border-bottom:1px solid var(--border)">
+        <div class="flex-between" style="margin-bottom:5px">
+          <span style="font-size:13px">{{ domain }}</span>
+          <span style="font-size:12px;font-weight:700;color:var(--accent2)">{{ count }}</span>
+        </div>
+        <div class="progress">
+          <div class="progress-bar" style="width:{{ (count/max_count*100)|int }}%"></div>
+        </div>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div style="padding:24px;text-align:center;color:var(--text2);font-size:13px">No domain data</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Top Projects by Score -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">🏆 Top Projects by Score</span></div>
+    <div class="card-body" style="padding:0">
+      {% set sorted_evals = all_evals|sort(attribute='total_marks', reverse=True) %}
+      {% if sorted_evals %}
+      {% for ev in sorted_evals[:5] %}
+      <div class="top-project">
+        <div class="rank-badge" style="background:{{ ['linear-gradient(135deg,#fbbf24,#f59e0b)','linear-gradient(135deg,#9ca3af,#6b7280)','linear-gradient(135deg,#cd7f32,#b45309)','var(--surface3)','var(--surface3)'][loop.index0] }}">
+          {{ loop.index }}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ ev.project.title }}</div>
+          <div class="text-xs">{{ ev.project.student.name }}</div>
+        </div>
+        <div style="font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--accent2)">{{ "%.0f"|format(ev.total_marks) }}</div>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div style="padding:24px;text-align:center;color:var(--text2);font-size:13px">No evaluated projects yet</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- All Projects Table -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">📋 All Projects Overview</span>
+    <button class="btn btn-ghost btn-sm" onclick="exportCSV()"><i class="fa-solid fa-download"></i> Export CSV</button>
+  </div>
+  <div class="card-body" style="padding:0">
+    <div class="table-wrap">
+      <table id="projectsTable">
+        <thead>
+          <tr>
+            <th>#</th><th>Title</th><th>Student</th><th>Type</th><th>Domain</th>
+            <th>Status</th><th>Score</th><th>Submitted</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in all_projects %}
+          {% set ev = p.evaluations[0] if p.evaluations else None %}
+          <tr>
+            <td style="color:var(--text3)">{{ loop.index }}</td>
+            <td>
+              <a href="{{ url_for('project_detail', project_id=p.id) }}" style="color:var(--accent2);text-decoration:none;font-weight:500">
+                {{ p.title[:42] }}{% if p.title|length > 42 %}...{% endif %}
+              </a>
+            </td>
+            <td>{{ p.student.name }}</td>
+            <td><span class="badge badge-{{ p.project_type }}">{{ p.project_type }}</span></td>
+            <td><span class="tag">{{ p.domain or '—' }}</span></td>
+            <td><span class="badge badge-{{ p.status }}"><span class="badge-dot"></span>{{ p.status }}</span></td>
+            <td>
+              {% if ev %}
+              <span style="font-weight:700;color:{{ 'var(--green)' if ev.total_marks >= 7.5 else 'var(--yellow)' if ev.total_marks >= 5 else 'var(--red)' }}">
+                {{ "%.1f"|format(ev.total_marks) }}
+              </span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-xs">{{ p.created_at.strftime('%b %d, %Y') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+// Status donut chart
+const ctx = document.getElementById('statusChart').getContext('2d');
+new Chart(ctx, {
+  type: 'doughnut',
+  data: {
+    labels: ['Pending', 'Approved', 'Rejected', 'Completed'],
+    datasets: [{
+      data: [{{ status_counts.pending }}, {{ status_counts.approved }}, {{ status_counts.rejected }}, {{ status_counts.completed }}],
+      backgroundColor: ['#fbbf24', '#22d3a5', '#f87171', '#60a5fa'],
+      borderWidth: 0, hoverOffset: 4
+    }]
+  },
+  options: {
+    cutout: '70%', plugins: { legend: { display: false } },
+    responsive: true, maintainAspectRatio: false
+  }
+});
+
+function exportCSV() {
+  const rows = [['Title','Student','Type','Domain','Status','Score','Date']];
+  document.querySelectorAll('#projectsTable tbody tr').forEach(tr => {
+    const cells = tr.querySelectorAll('td');
+    rows.push([
+      cells[1].innerText.trim(), cells[2].innerText, cells[3].innerText,
+      cells[4].innerText, cells[5].innerText, cells[6].innerText, cells[7].innerText
+    ]);
+  });
+  const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'projects_report.csv';
+  a.click();
+}
+</script>
+{% endblock %}

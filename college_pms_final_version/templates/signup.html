@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block auth_content %}
+<style>
+.auth-wrap{height:100vh;width:100vw;background:var(--bg);padding:40px 16px;position:fixed;top:0;left:0;z-index:999;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
+.auth-card{width:100%;max-width:500px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px;box-shadow:var(--shadow);position:relative;margin:auto}
+.auth-logo{display:flex;align-items:center;gap:10px;margin-bottom:28px}
+.auth-logo-icon{width:40px;height:40px;background:linear-gradient(135deg,var(--accent),#a78bfa);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.auth-logo span{font-family:var(--font-display);font-size:18px;font-weight:700}
+.role-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px}
+.role-btn{padding:12px 8px;border:2px solid var(--border);border-radius:var(--radius-sm);background:transparent;color:var(--text2);cursor:pointer;font-family:var(--font-body);font-size:12px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;transition:all 0.2s}
+.role-btn i{font-size:20px}
+.role-btn:hover{border-color:var(--border2);color:var(--text)}
+.role-btn.active{border-color:var(--accent);background:var(--accent-dim);color:var(--accent2)}
+.role-desc{font-size:11px;color:var(--text3);text-align:center;margin-bottom:18px;padding:10px 14px;background:var(--surface2);border-radius:var(--radius-sm);border-left:3px solid var(--accent)}
+</style>
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">🎓</div>
+      <span>Create Account</span>
+    </div>
+
+    {% with messages=get_flashed_messages(with_categories=true) %}
+      {% for cat,msg in messages %}
+      <div class="alert alert-{{cat}}" style="margin-bottom:16px"><i class="fa-solid fa-info-circle"></i> {{msg}}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="POST" action="/signup" id="signupForm">
+      <!-- Role Selection -->
+      <div style="margin-bottom:6px">
+        <label style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:8px">I am a</label>
+        <div class="role-grid" style="grid-template-columns: repeat(2, 1fr);">
+          <button type="button" class="role-btn active" id="btnStudent" onclick="setRole('student')">
+            <i class="fa-solid fa-user-graduate"></i> Student
+          </button>
+          <button type="button" class="role-btn" id="btnFaculty" onclick="setRole('faculty')">
+            <i class="fa-solid fa-chalkboard-teacher"></i> Faculty
+          </button>
+        </div>
+        <input type="hidden" name="role" id="roleInput" value="student">
+      </div>
+
+      <!-- Role description -->
+      <div class="role-desc" id="roleDesc">
+        📚 <strong>Student:</strong> Submit project ideas, work with your assigned faculty guide, upload submissions and track progress.
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" name="name" placeholder="Your full name" required>
+        </div>
+        <div class="form-group">
+          <label>Department</label>
+          <select name="department">
+            <option value="">Select department</option>
+            <option>Computer Science</option>
+            <option>Information Technology</option>
+            <option>Electronics & Comm.</option>
+            <option>Mechanical Eng.</option>
+            <option>Civil Engineering</option>
+            <option>Electrical Eng.</option>
+            <option>Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>College Email</label>
+        <input type="email" name="email" placeholder="yourname@college.edu" required>
+      </div>
+
+      <!-- Student Fields -->
+      <div class="form-row" id="studentFieldsGroup">
+        <div class="form-group">
+          <label>Semester</label>
+          <select name="semester" id="semester">
+            <option value="">Select</option>
+            <option>1st Semester</option>
+            <option>2nd Semester</option>
+            <option>3rd Semester</option>
+            <option>4th Semester</option>
+            <option>5th Semester</option>
+            <option>6th Semester</option>
+            <option>7th Semester</option>
+            <option>8th Semester</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Enrollment Number</label>
+          <input type="text" name="enrollment" id="enrollment" placeholder="e.g. 0827CS211">
+        </div>
+      </div>
+
+      <!-- College ID (faculty + admin) -->
+      <div class="form-group" id="collegeIdGroup" style="display:none">
+        <label>Official College ID <span style="color:var(--red)">*</span></label>
+        <input type="text" name="college_id" id="collegeId" placeholder="e.g. FAC-2024-001">
+        <div class="form-hint">Required for faculty and admin registration</div>
+      </div>
+
+      <!-- Admin secret code -->
+      <div class="form-group" id="adminCodeGroup" style="display:none">
+        <label>Admin Registration Code <span style="color:var(--red)">*</span></label>
+        <input type="password" name="admin_code" id="adminCode" placeholder="Enter secret admin code">
+        <div class="form-hint" style="color:var(--yellow)">⚠️ Contact your institution for the admin registration code</div>
+      </div>
+
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="password" placeholder="Minimum 8 characters" required minlength="8">
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px">
+        <i class="fa-solid fa-user-plus"></i> Create Account
+      </button>
+    </form>
+
+    <div style="text-align:center;margin-top:18px;font-size:13px;color:var(--text2)">
+      Already have an account? <a href="/login" style="color:var(--accent2);font-weight:600;text-decoration:none">Sign in</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const descriptions = {
+  student: '📚 <strong>Student:</strong> Submit project ideas, work with your assigned faculty guide, upload submissions and track progress.',
+  faculty: '👨‍🏫 <strong>Faculty Guide:</strong> View and guide only the projects assigned to you by the admin. Add feedback, evaluate and mentor students.'
+};
+function setRole(role) {
+  document.getElementById('roleInput').value = role;
+  ['Student','Faculty'].forEach(r =>
+    document.getElementById('btn'+r).classList.toggle('active', r.toLowerCase()===role));
+  document.getElementById('roleDesc').innerHTML = descriptions[role];
+  document.getElementById('collegeIdGroup').style.display = role!=='student' ? 'block':'none';
+  document.getElementById('collegeId').required = role!=='student';
+  
+  document.getElementById('studentFieldsGroup').style.display = role==='student' ? 'flex':'none';
+  document.getElementById('semester').required = role==='student';
+  document.getElementById('enrollment').required = role==='student';
+}
+</script>
+{% endblock %}
