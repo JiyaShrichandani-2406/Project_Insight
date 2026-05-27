@@ -4,4 +4,4 @@ Flask-Login
 python-dotenv
 requests
 google-genai
-
+gunicorn
